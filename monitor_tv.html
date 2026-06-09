@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <title>DAKA - FIDS Monitor General</title>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <style>
+        :root { --bg-color: #050a12; --header-bg: #0b1526; --daka-yellow: #facc15; --daka-blue: #38bdf8; --text-main: #ffffff; --text-dim: #94a3b8; --row-even: #09101c; --row-odd: #050a12; --status-green: #4ade80; --status-red: #ef4444; }
+        * { box-sizing: border-box; }
+        body, html { margin:0; padding:0; background-color:var(--bg-color); color:var(--text-main); font-family:'Segoe UI',Arial,sans-serif; overflow:hidden; height:100vh; display:flex; flex-direction:column; }
+        .header { height:12vh; display:flex; justify-content:space-between; align-items:center; padding:0 3vw; background-color:var(--header-bg); border-bottom:0.5vh solid var(--daka-yellow); }
+        .logo-title { display:flex; align-items:center; gap:1.5vw; }
+        .logo-img { height:8vh; object-fit:contain; }
+        .title-text { font-size:3.5vh; font-weight:900; color:var(--daka-yellow); margin:0; }
+        .clock-time { font-size:4vh; font-family:monospace; }
+        .table-container { flex:1; padding:0 2vw; overflow-y:auto; }
+        table { width:100%; border-collapse:collapse; }
+        th { background-color:transparent; color:var(--daka-blue); font-size:2.2vh; text-align:left; border-bottom:0.3vh solid #1e293b; }
+        td { padding:1vh 1vw; font-size:2.5vh; border-bottom:1px solid #1e293b; }
+        tr:nth-child(even) { background-color:var(--row-even); }
+        .blink { animation: blinker 1.5s linear infinite; }
+        @keyframes blinker { 50% { opacity:0.3; } }
+        .empty-state { display:flex; justify-content:center; align-items:center; height:100%; font-size:4vh; color:var(--text-dim); }
+        .login-container { display: flex; justify-content: center; align-items: center; height: 100vh; background: var(--bg-color); }
+        .login-box { background: var(--header-bg); padding: 30px; border-radius: 8px; width: 320px; text-align: center; }
+        .login-box input { width: 100%; margin: 10px 0; padding: 10px; border-radius: 4px; border: 1px solid #334155; background: #0f172a; color: white; }
+        .login-box button { background: var(--daka-yellow); color: #000; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; }
+    </style>
+</head>
+<body>
+<div id="app"></div>
+<script>
+    const firebaseConfig = {
+        apiKey: "AIzaSyDUUGll9Sjhw142PBc1KhShXSUUN59iI2Y",
+        authDomain: "simulador-7af44.firebaseapp.com",
+        databaseURL: "https://simulador-7af44-default-rtdb.firebaseio.com",
+        projectId: "simulador-7af44",
+        storageBucket: "simulador-7af44.firebasestorage.app",
+        messagingSenderId: "763203204607",
+        appId: "1:763203204607:web:688a418cad6b41194fe3ca",
+        measurementId: "G-NVL4XJ03P2"
+    };
+    firebase.initializeApp(firebaseConfig);
+    const database = firebase.database();
+    const auth = firebase.auth();
+
+    const uidToGalpon = {
+        "9OvNhdH7ErdpadjBJSLfEcjubI13": "monitor",
+        "qW9SeYa0WwTwMCif4etKLE3xYfG3": "admin"   // opcional
+    };
+
+    let datosTransporte = [];
+    let currentPage = 0;
+    const PAGE_SIZE = 7;
+
+    function mostrarInterfaz() {
+        document.getElementById('app').innerHTML = `
+            <div class="header">
+                <div class="logo-title">
+                    <img src="LOGO_DAKA.png" class="logo-img" onerror="this.style.display='none'">
+                    <div><h1 class="title-text">SALIDAS / DEPARTURES</h1><p>Monitor Maestro de Transporte - CDD</p></div>
+                </div>
+                <div class="clock-container"><p class="clock-time" id="clock-time">00:00:00</p></div>
+            </div>
+            <div class="table-container">
+                <table id="fids-table">
+                    <thead><tr><th>Vehículo</th><th>Destino</th><th>Documentos SAP</th><th>Vol (m³)</th><th>Andén</th><th>Estatus</th></tr></thead>
+                    <tbody id="fids-body"></tbody>
+                </table>
+                <div id="empty-message" class="empty-state" style="display:none;">Esperando programación de despachos...</div>
+            </div>
+        `;
+        setInterval(() => {
+            const clockSpan = document.getElementById('clock-time');
+            if (clockSpan) clockSpan.innerText = new Date().toLocaleTimeString();
+        }, 1000);
+        cargarDatosFirebase();
+    }
+
+    function cargarDatosFirebase() {
+        database.ref('patio/andenes').on('value', snap => {
+            const obj = snap.val() || {};
+            const lista = [];
+            for (let g in obj) {
+                for (let p in obj[g]) {
+                    const camion = obj[g][p];
+                    if (camion && camion.flota) {
+                        lista.push({
+                            flota: camion.flota,
+                            destino: camion.destino,
+                            documentos: camion.documentos || 'S/N',
+                            volumen: camion.volumen || 0,
+                            anden: `${g}-${p}`,
+                            estado: camion.estado || (camion.inicioCargaReal ? 'CARGANDO' : 'ASIGNADO')
+                        });
+                    }
+                }
+            }
+            datosTransporte = lista;
+            renderizarPagina();
+        });
+    }
+
+    function renderizarPagina() {
+        const tbody = document.getElementById('fids-body');
+        const emptyMsg = document.getElementById('empty-message');
+        if (!tbody) return;
+        if (datosTransporte.length === 0) {
+            emptyMsg.style.display = 'flex';
+            tbody.innerHTML = '';
+            return;
+        }
+        emptyMsg.style.display = 'none';
+        const start = currentPage * PAGE_SIZE;
+        const pageData = datosTransporte.slice(start, start + PAGE_SIZE);
+        tbody.innerHTML = '';
+        pageData.forEach(item => {
+            const tr = document.createElement('tr');
+            let estatusHTML = `<span style="color:#94a3b8;">${item.estado}</span>`;
+            if (item.estado === 'CARGANDO') estatusHTML = `<span class="blink" style="color:var(--status-green);">CARGANDO</span>`;
+            else if (item.estado === 'RETRASO') estatusHTML = `<span class="blink" style="color:var(--status-red);">RETRASO</span>`;
+            tr.innerHTML = `
+                <td>${escapeHtml(item.flota)}</td>
+                <td>${escapeHtml(item.destino)}</td>
+                <td><small>${escapeHtml(item.documentos)}</small></td>
+                <td>${parseFloat(item.volumen).toFixed(2)}</td>
+                <td>${escapeHtml(item.anden)}</td>
+                <td>${estatusHTML}</td>
+            `;
+            tbody.appendChild(tr);
+        });
+        if (datosTransporte.length > PAGE_SIZE) {
+            setTimeout(() => {
+                currentPage = (currentPage + 1) % Math.ceil(datosTransporte.length / PAGE_SIZE);
+                renderizarPagina();
+            }, 10000);
+        }
+    }
+
+    function escapeHtml(str) { return String(str).replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
+
+    function mostrarLogin() {
+        document.getElementById('app').innerHTML = `
+            <div class="login-container">
+                <div class="login-box">
+                    <h2>Acceso Monitor TV</h2>
+                    <input type="email" id="login-email" placeholder="Email" autocomplete="off">
+                    <input type="password" id="login-password" placeholder="Contraseña">
+                    <button id="login-btn">Ingresar</button>
+                    <div id="login-error" style="color:red; margin-top:10px;"></div>
+                </div>
+            </div>
+        `;
+        document.getElementById('login-btn').addEventListener('click', () => {
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
+            auth.signInWithEmailAndPassword(email, pass)
+                .then(userCred => {
+                    const uid = userCred.user.uid;
+                    if (uidToGalpon[uid] === 'monitor' || uidToGalpon[uid] === 'admin') {
+                        mostrarInterfaz();
+                    } else {
+                        document.getElementById('login-error').innerText = 'Usuario no autorizado para el monitor.';
+                        auth.signOut();
+                    }
+                })
+                .catch(err => document.getElementById('login-error').innerText = 'Error: ' + err.message);
+        });
+    }
+
+    auth.onAuthStateChanged(user => {
+        if (user && (uidToGalpon[user.uid] === 'monitor' || uidToGalpon[user.uid] === 'admin')) {
+            mostrarInterfaz();
+        } else {
+            mostrarLogin();
+        }
+    });
+</script>
+</body>
+</html>
