@@ -6,59 +6,98 @@
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <style>
-        /* Mismos estilos que antes, no los cambio para no alargar */
         :root { --bg-dark: #0f172a; --panel-bg: #1e293b; --text-main: #f8fafc; --accent-blue: #38bdf8; --green: #22c55e; --red: #ef4444; --yellow: #eab308; --border-color: #334155; }
         * { box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg-dark); color: var(--text-main); margin: 0; padding: 10px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #000; border-bottom: 2px solid var(--accent-blue); margin-bottom: 10px; }
-        .header-left { display: flex; align-items: center; gap: 20px; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #000; border-bottom: 2px solid var(--accent-blue); margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
+        .header-left { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
         .clock { font-size: 1.5em; font-weight: bold; color: var(--yellow); font-family: monospace; }
-        .main-container { display: flex; gap: 15px; flex: 1; overflow: hidden; }
+        .btn { background-color: var(--accent-blue); color: #000; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; font-size: 0.8rem; }
+        .btn-yellow { background-color: var(--yellow); color: #000; }
+        .main-container { display: flex; gap: 15px; flex: 1; overflow: hidden; margin-bottom: 10px; }
         .sidebar { width: 320px; display: flex; flex-direction: column; gap: 15px; }
-        .queue-panel, .en-ruta-panel { background: var(--panel-bg); border-radius: 8px; display: flex; flex-direction: column; border: 1px solid var(--border-color); flex: 1; }
-        .queue-header, .ruta-header { background: var(--border-color); padding: 10px; font-weight: bold; text-align: center; border-radius: 8px 8px 0 0; }
-        .queue-list { padding: 10px; overflow-y: auto; flex: 1; }
-        .trk-card { background: #0f172a; border-left: 4px solid var(--yellow); padding: 10px; border-radius: 4px; cursor: pointer; margin-bottom: 8px; }
+        .queue-panel, .en-ruta-panel { background: var(--panel-bg); border-radius: 8px; display: flex; flex-direction: column; border: 1px solid var(--border-color); flex: 1; min-height: 0; }
+        .queue-header { background: var(--border-color); padding: 10px; font-weight: bold; text-align: center; border-radius: 8px 8px 0 0; }
+        .ruta-header { background: #1e3a8a; padding: 10px; font-weight: bold; text-align: center; border-radius: 8px 8px 0 0; }
+        .queue-list { padding: 10px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px; }
+        .trk-card { background: #0f172a; border-left: 4px solid var(--yellow); padding: 10px; border-radius: 4px; cursor: pointer; transition: transform 0.2s; font-size: 0.85em; position: relative;}
+        .trk-card:hover { transform: translateX(5px); background: #1e293b; border: 1px solid var(--accent-blue); }
         .trk-card.selected { border: 2px solid var(--accent-blue); background: #164e63; }
-        .trk-id { font-weight: bold; color: var(--accent-blue); }
-        .yard-panel { flex: 1; display: flex; gap: 10px; overflow-y: auto; }
+        .trk-id { font-weight: bold; color: var(--accent-blue); font-size: 1.1em; margin-bottom: 3px;}
+        .trk-dest { color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;}
+        .trk-sap { font-size: 0.75em; color: var(--accent-blue); margin-bottom: 5px; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
+        .trk-seq { color: var(--yellow); font-size: 0.85em; margin-top: 5px; font-weight: bold;}
+        .estatus-btn { display:inline-block; margin-top:5px; background:rgba(255,255,255,0.05); border:1px solid #475569; padding:4px 8px; border-radius:4px; transition:all 0.2s; cursor:pointer; }
+        .estatus-btn:hover { background:rgba(255,255,255,0.1); }
+        .yard-panel { flex: 1; display: flex; gap: 10px; overflow-y: auto; padding-right: 5px; }
         .galpon-col { flex: 1; background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; }
-        .galpon-header { background: #1e293b; text-align: center; padding: 8px; font-weight: bold; }
-        .doors-container { padding: 8px; display: flex; flex-direction: column; gap: 8px; }
-        .door { background: #000; border: 1px solid var(--border-color); border-radius: 6px; min-height: 130px; display: flex; flex-direction: column; }
-        .door-header { background: var(--border-color); padding: 5px 10px; display: flex; justify-content: space-between; }
-        .door-content { padding: 8px; flex: 1; display: flex; align-items: center; justify-content: center; }
-        .empty-text { color: #475569; cursor: pointer; text-align: center; }
-        .active-truck { font-size: 0.8em; width: 100%; }
-        .lbl-flota { font-weight: bold; color: var(--accent-blue); }
-        .timer-display { font-size: 1.6em; font-weight: bold; text-align: center; color: var(--green); }
+        .galpon-header { background: #1e293b; color: white; text-align: center; padding: 8px; font-weight: bold; font-size: 1.1em; border-bottom: 2px solid var(--border-color); border-radius: 8px 8px 0 0; letter-spacing: 1px;}
+        .doors-container { padding: 8px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+        .door { background: #000; border: 1px solid var(--border-color); border-radius: 6px; min-height: 130px; display: flex; flex-direction: column; position: relative; overflow: hidden; transition: all 0.3s;}
+        .door-header { background: var(--border-color); padding: 5px 10px; font-weight: bold; font-size: 0.85em; display: flex; justify-content: space-between; }
+        .door-content { padding: 8px; flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+        .empty-text { color: #475569; font-style: italic; cursor: pointer; padding: 10px; width: 100%; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 0.9em;}
+        .empty-text:hover { background: rgba(56, 189, 248, 0.1); color: var(--accent-blue); }
+        .active-truck { width: 100%; display: flex; flex-direction: column; gap: 3px; font-size: 0.8em; text-align: left; }
+        .lbl-flota { font-weight: bold; color: var(--accent-blue); font-size: 1.1em;}
+        .lbl-dest { color: #f8fafc; }
+        .lbl-time { font-size: 0.85em; color: var(--yellow); font-style: italic; font-weight: bold;}
+        .timer-display { font-size: 1.6em; font-weight: bold; text-align: center; margin-top: 5px; font-family: monospace; color: var(--green);}
+        .timer-display.warning { color: var(--yellow); }
+        .door.retraso { animation: blinkRed 1.5s infinite; border-color: var(--red); }
+        .door.retraso .timer-display { color: var(--red); }
+        @keyframes blinkRed { 0% { box-shadow: 0 0 0px var(--red); background-color: #000; } 50% { box-shadow: inset 0 0 15px var(--red); background-color: rgba(239, 68, 68, 0.15); } 100% { box-shadow: 0 0 0px var(--red); background-color: #000; } }
         .door-controls { display: flex; border-top: 1px solid var(--border-color); }
-        .door-btn { flex: 1; background: transparent; border: none; color: white; padding: 6px; cursor: pointer; }
-        .btn-start { background-color: rgba(34, 197, 94, 0.2); }
-        .btn-dispatch { color: var(--accent-blue); }
-        .btn-cancel-anden { color: var(--red); }
-        .kpi-bar { background: #000; border-radius: 8px; padding: 10px 20px; display: flex; justify-content: space-between; margin-top: 10px; }
-        .kpi-wrapper { display: flex; gap: 30px; }
-        .kpi-label { font-size: 0.75em; color: #94a3b8; }
+        .door-btn { flex: 1; background: transparent; border: none; color: white; padding: 6px; cursor: pointer; font-weight: bold; font-size: 0.8em; transition: background 0.2s;}
+        .door-btn:hover { background: var(--border-color); }
+        .btn-start { color: white; background-color: rgba(34, 197, 94, 0.2); }
+        .pulse-start { animation: pulseGreen 1.5s infinite; border: 1px solid var(--green); }
+        @keyframes pulseGreen { 0% { box-shadow: 0 0 0px var(--green); } 50% { box-shadow: 0 0 10px var(--green); background-color: rgba(34, 197, 94, 0.5); } 100% { box-shadow: 0 0 0px var(--green); } }
+        .btn-dispatch { color: var(--accent-blue); border-left: 1px solid var(--border-color);}
+        .btn-dispatch:hover { background: rgba(56, 189, 248, 0.2); }
+        .btn-cancel-anden { color: var(--red); border-left: 1px solid var(--border-color);}
+        .btn-cancel-anden:hover { background: rgba(239, 68, 68, 0.2); }
+        .btn-disabled { opacity: 0.3; pointer-events: none; }
+        .kpi-bar { background: #000; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
+        .kpi-wrapper { display: flex; gap: 30px; flex-wrap: wrap; }
+        .kpi-item { display: flex; flex-direction: column; align-items: center; }
+        .kpi-label { font-size: 0.75em; color: #94a3b8; text-transform: uppercase; font-weight: bold; letter-spacing: 1px;}
         .kpi-val { font-size: 1.4em; font-weight: bold; color: var(--accent-blue); }
-        .btn-report { background: var(--yellow); color: #000; border: none; padding: 8px 20px; border-radius: 4px; cursor: pointer; }
-        .btn-proyectar { background-color: var(--accent-blue); color: #000; border: none; padding: 8px 15px; border-radius: 4px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; }
+        .btn-report { background: var(--yellow); color: #000; border: none; padding: 8px 20px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.9em; transition: background 0.3s;}
+        .btn-report:hover { background: #d97706; }
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(3px);}
+        .modal-content { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 25px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
+        .modal-content.large { width: 95%; max-width: 1400px; max-height: 85vh; display: flex; flex-direction: column; }
+        .modal-title { color: var(--red); margin-top: 0; font-size: 1.2em; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;}
+        .form-group { margin-top: 15px; }
+        .form-group label { display: block; font-size: 0.85em; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;}
+        .form-control { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: #0f172a; color: white; font-family: inherit; font-size: 0.9em; box-sizing: border-box;}
+        .modal-actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
+        .btn-save { background: var(--red); color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
+        .btn-cancel { background: #64748b; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.3s;}
+        .btn-cancel:hover { background: #475569; }
         .login-container { display: flex; justify-content: center; align-items: center; height: 100vh; background: var(--bg-dark); }
-        .login-box { background: var(--panel-bg); padding: 30px; border-radius: 8px; width: 320px; text-align: center; }
-        .login-box input { width: 100%; margin: 10px 0; padding: 10px; background: #0f172a; border: 1px solid var(--border-color); color: white; border-radius: 4px; }
-        .login-box button { background: var(--accent-blue); color: #000; padding: 10px; width: 100%; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; }
+        .login-box { background: var(--panel-bg); padding: 30px; border-radius: 8px; width: 320px; text-align: center; border: 1px solid var(--border-color); }
+        .login-box input { width: 100%; margin: 10px 0; padding: 10px; border-radius: 4px; border: 1px solid var(--border-color); background: #0f172a; color: white; }
+        .login-box button { background: var(--accent-blue); color: #000; padding: 10px; border: none; border-radius: 4px; font-weight: bold; cursor: pointer; width: 100%; }
         .error-msg { color: var(--red); margin-top: 10px; }
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; }
-        .modal-content { background: var(--panel-bg); padding: 25px; width: 400px; border-radius: 8px; }
-        .table-wrap { overflow-y: auto; max-height: 500px; }
-        table { width: 100%; border-collapse: collapse; font-size: 0.85em; }
-        th, td { padding: 8px; border-bottom: 1px solid var(--border-color); text-align: left; }
+        .table-wrap { overflow-y: auto; overflow-x: auto; flex: 1; margin-top: 15px; border: 1px solid var(--border-color); border-radius: 4px; }
+        table { width: 100%; border-collapse: collapse; font-size: 0.85em; white-space: nowrap; }
+        th, td { padding: 8px; text-align: left; border-bottom: 1px solid var(--border-color); }
+        th { background: #000; color: var(--accent-blue); position: sticky; top: 0; }
+        tr:hover { background: rgba(255,255,255,0.02); }
+        .tag-ok { color: var(--green); font-weight: bold; }
+        .tag-late { color: var(--red); font-weight: bold; }
+        .file-input { display: none; }
+        .import-buttons { display: flex; gap: 8px; margin-left: 10px; }
     </style>
 </head>
 <body>
 <div id="app"></div>
 <script>
+    // Configuración Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyDUUGll9Sjhw142PBc1KhShXSUUN59iI2Y",
         authDomain: "simulador-7af44.firebaseapp.com",
@@ -86,9 +125,11 @@
     let camionSeleccionado = null, galponActual = null;
     let timers = {};
 
-    function escapeHtml(str) { return str?.replace(/[&<>]/g, function(m) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m]; }) || ''; }
+    function escapeHtml(str) { return str?.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])) || ''; }
     function formatTime(iso) { return iso ? new Date(iso).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '--:--'; }
+    function formatDate(iso) { return iso ? new Date(iso).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit' }) : '--/--'; }
 
+    // Renderizado de cola, rutas, andenes (igual que antes, pero lo resumo por brevedad)
     function renderizarCola() {
         const cont = document.getElementById('queue-list');
         if (!cont) return;
@@ -99,8 +140,8 @@
             div.className = 'trk-card';
             div.innerHTML = `<div class="trk-id">${escapeHtml(c.flota)}</div>
                             <div>${escapeHtml(c.destino)}</div>
-                            <div style="font-size:0.75em;">📦 ${escapeHtml(c.documentos)}</div>
-                            <div>📍 ${escapeHtml(c.secuencia)}</div>
+                            <div class="trk-sap">📦 ${escapeHtml(c.documentos || 'S/N')}</div>
+                            <div class="trk-seq">📍 ${escapeHtml(c.secuencia)}</div>
                             <div>⏰ ${formatTime(c.llegadaProgramada)}</div>
                             <button class="estatus-btn" onclick="abrirModalEstatus(${i}, event)">⚙️ Estatus</button>`;
             div.onclick = (e) => { if (e.target.tagName !== 'BUTTON') seleccionarCamion(i, div); };
@@ -257,9 +298,76 @@
         });
     }
 
-    function abrirModalEstatus(idx, ev) { ev.stopPropagation(); /* simplificado, puedes implementar después */ alert("Función de estatus disponible"); }
-    function actualizarKPIs() { /* simplificado */ }
+    function abrirModalEstatus(idx, ev) { ev.stopPropagation(); alert("Función de estatus disponible (puedes implementarla después)"); }
+    function actualizarKPIs() { 
+        document.getElementById('kpi-total').innerText = historial.length;
+        let inc = 0; historial.forEach(h => { if(h.incidencias) inc += h.incidencias.length; });
+        document.getElementById('kpi-incidencias').innerText = inc;
+    }
     function abrirModalReporte() { alert("Reporte en construcción"); }
+
+    // === NUEVAS FUNCIONES PARA CARGAR PLAN ===
+    function cargarDesdeLocalStorage() {
+        const data = localStorage.getItem('yms_monitor_data');
+        if (!data) return alert("No hay plan guardado en localStorage. Asegúrate de haber generado y guardado el plan en Capa 2 (Aprobar y Guardar Plan).");
+        let viajes;
+        try { viajes = JSON.parse(data); } catch(e) { return alert("Error al leer datos"); }
+        if (!Array.isArray(viajes) || viajes.length === 0) return alert("El plan está vacío.");
+        // Subir a Firebase
+        database.ref('patio/cola').set(viajes)
+            .then(() => alert(`✅ Plan cargado correctamente: ${viajes.length} viajes en cola.`))
+            .catch(err => alert("Error al subir a Firebase: " + err.message));
+    }
+
+    function cargarDesdeExcel(file) {
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            const data = new Uint8Array(e.target.result);
+            const workbook = XLSX.read(data, { type: 'array' });
+            const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
+            const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
+            if (!rows || rows.length < 2) return alert("El Excel no tiene datos.");
+            const headers = rows[0];
+            const viajes = [];
+            for (let i = 1; i < rows.length; i++) {
+                const row = rows[i];
+                if (row.length < 5 || !row[0]) continue; // columna día
+                // Mapeo según las columnas del Excel que exporta capa2 (tabla-rutas)
+                // Debe extraer: Destino, Flota, Volumen, Secuencia, Llegada al Andén (fecha/hora)
+                // Como es variable, haremos un mapeo por posición aproximada.
+                // Asumimos: col1 día, col2 destino, col3 flota, col4 volumen, col5 ocupación, col6 secuencia, col7 llegada andén, col8 salida, col9 retorno
+                const destino = row[1] ? String(row[1]).split('📦')[0].trim() : "";
+                let flota = row[2] ? String(row[2]) : "";
+                // Extraer placa (puede venir con "PRP" o "SUB")
+                const matchPlaca = flota.match(/([A-Z0-9]+)/);
+                if (matchPlaca) flota = matchPlaca[1];
+                const volumen = parseFloat(row[3]) || 0;
+                const secuencia = row[5] ? String(row[5]) : "G1";
+                let llegadaProgramada = row[6] ? new Date(row[6]) : new Date();
+                if (isNaN(llegadaProgramada)) llegadaProgramada = new Date();
+                if (volumen > 0 && destino) {
+                    viajes.push({
+                        idViaje: 'TRK-' + Math.floor(Math.random() * 10000),
+                        destino: destino,
+                        flota: flota,
+                        chofer: "Cargado desde Excel",
+                        volumen: volumen,
+                        secuencia: secuencia,
+                        documentos: "Importado",
+                        llegadaProgramada: llegadaProgramada.toISOString(),
+                        estado: 'En Patio',
+                        yardJockey: 'Sin Asignar',
+                        estatusLogistico: 'DISPONIBLE EN PATIO'
+                    });
+                }
+            }
+            if (viajes.length === 0) return alert("No se encontraron viajes válidos en el Excel. Asegúrate de que el archivo tenga el formato de la tabla 'Cronograma Maestro'.");
+            database.ref('patio/cola').set(viajes)
+                .then(() => alert(`✅ ${viajes.length} viajes importados desde Excel.`))
+                .catch(err => alert("Error al subir a Firebase: " + err.message));
+        };
+        reader.readAsArrayBuffer(file);
+    }
 
     function mostrarInterfaz(galpon) {
         galponActual = galpon;
@@ -267,7 +375,12 @@
             <div class="header">
                 <div class="header-left">
                     <h1>Control Galpón ${galpon}</h1>
-                    <a href="monitor_tv.html" target="_blank" class="btn-proyectar">📺 Proyectar TV</a>
+                    <div class="import-buttons">
+                        <button class="btn" onclick="cargarDesdeLocalStorage()">📂 Cargar plan desde localStorage</button>
+                        <button class="btn btn-yellow" onclick="document.getElementById('excel-input').click()">📎 Cargar plan desde Excel</button>
+                        <input type="file" id="excel-input" class="file-input" accept=".xlsx, .xls" onchange="cargarDesdeExcel(this.files[0])">
+                    </div>
+                    <a href="monitor_tv.html" target="_blank" class="btn">📺 Proyectar TV</a>
                 </div>
                 <div class="clock" id="main-clock">--:--:--</div>
             </div>
@@ -279,14 +392,18 @@
                 <div class="yard-panel" id="yard-panel"></div>
             </div>
             <div class="kpi-bar">
-                <div class="kpi-wrapper"><div class="kpi-item"><span class="kpi-label">Despachos</span><span class="kpi-val" id="kpi-total">0</span></div></div>
+                <div class="kpi-wrapper">
+                    <div class="kpi-item"><span class="kpi-label">Despachos Finalizados</span><span class="kpi-val" id="kpi-total">0</span></div>
+                    <div class="kpi-item"><span class="kpi-label">Incidencias (RCA)</span><span class="kpi-val" id="kpi-incidencias">0</span></div>
+                </div>
                 <button class="btn-report" onclick="abrirModalReporte()">📊 Auditoría</button>
             </div>
         `;
         setInterval(() => { let c = document.getElementById('main-clock'); if (c) c.innerText = new Date().toLocaleTimeString(); }, 1000);
         database.ref('patio/cola').on('value', s => { camionesEnEspera = s.val() || []; renderizarCola(); });
-        database.ref('patio/andenes').on('value', s => { let obj = s.val() || []; let lista = []; for (let g in obj) for (let p in obj[g]) lista.push(obj[g][p]); camionesEnAnden = lista; renderizarGalpones(); });
+        database.ref('patio/andenes').on('value', s => { let obj = s.val() || {}; let lista = []; for (let g in obj) for (let p in obj[g]) lista.push(obj[g][p]); camionesEnAnden = lista; renderizarGalpones(); });
         database.ref('patio/enRuta').on('value', s => { camionesEnRuta = s.val() || []; renderizarRuta(); });
+        database.ref('patio/historial').on('value', s => { historial = s.val() || []; actualizarKPIs(); });
         renderizarGalpones();
     }
 
@@ -295,7 +412,7 @@
             <div class="login-container">
                 <div class="login-box">
                     <h2>Iniciar Sesión</h2>
-                    <input type="email" id="email" placeholder="Email">
+                    <input type="email" id="email" placeholder="Email" autocomplete="off">
                     <input type="password" id="pass" placeholder="Contraseña">
                     <button id="btnLogin">Ingresar</button>
                     <div id="error" class="error-msg"></div>
