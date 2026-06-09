@@ -46,9 +46,9 @@
     const database = firebase.database();
     const auth = firebase.auth();
 
-    const uidToGalpon = {
-        "9OvNhdH7ErdpadjBJSLfEcjubI13": "monitor",
-        "qW9SeYa0WwTwMCif4etKLE3xYfG3": "admin"   // opcional
+    const emailToGalpon = {
+        "monitor@daka.com": "monitor",
+        "admin@daka.com": "admin"
     };
 
     let datosTransporte = [];
@@ -59,7 +59,7 @@
         document.getElementById('app').innerHTML = `
             <div class="header">
                 <div class="logo-title">
-                    <img src="LOGO_DAKA.png" class="logo-img" onerror="this.style.display='none'">
+                    <div style="height:8vh; width:8vh; background:var(--daka-yellow); border-radius:8px;"></div>
                     <div><h1 class="title-text">SALIDAS / DEPARTURES</h1><p>Monitor Maestro de Transporte - CDD</p></div>
                 </div>
                 <div class="clock-container"><p class="clock-time" id="clock-time">00:00:00</p></div>
@@ -158,8 +158,8 @@
             const pass = document.getElementById('login-password').value;
             auth.signInWithEmailAndPassword(email, pass)
                 .then(userCred => {
-                    const uid = userCred.user.uid;
-                    if (uidToGalpon[uid] === 'monitor' || uidToGalpon[uid] === 'admin') {
+                    const user = userCred.user;
+                    if (emailToGalpon[user.email] === 'monitor' || emailToGalpon[user.email] === 'admin') {
                         mostrarInterfaz();
                     } else {
                         document.getElementById('login-error').innerText = 'Usuario no autorizado para el monitor.';
@@ -171,7 +171,7 @@
     }
 
     auth.onAuthStateChanged(user => {
-        if (user && (uidToGalpon[user.uid] === 'monitor' || uidToGalpon[user.uid] === 'admin')) {
+        if (user && (emailToGalpon[user.email] === 'monitor' || emailToGalpon[user.email] === 'admin')) {
             mostrarInterfaz();
         } else {
             mostrarLogin();
