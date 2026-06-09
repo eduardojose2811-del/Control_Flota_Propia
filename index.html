@@ -3,13 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>YMS Daka - Tablero de Control de Patio</title>
+    <title>YMS Daka - Control de Galpón</title>
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <!-- SheetJS para exportar Excel -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <style>
-        /* ===== ESTILOS COMPLETOS (igual que en capa3.html original) ===== */
+        /* ===== ESTILOS COMPLETOS (igual que en tu capa3.html original) ===== */
         :root { --bg-dark: #0f172a; --panel-bg: #1e293b; --text-main: #f8fafc; --accent-blue: #38bdf8; --green: #22c55e; --red: #ef4444; --yellow: #eab308; --border-color: #334155; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg-dark); color: var(--text-main); margin: 0; padding: 10px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #000; border-bottom: 2px solid var(--accent-blue); margin-bottom: 10px; }
@@ -102,7 +104,7 @@
 <body>
 <div id="app"></div>
 <script>
-    // ---------- CONFIGURACIÓN ----------
+    // ---------- CONFIGURACIÓN FIREBASE ----------
     const firebaseConfig = {
         apiKey: "AIzaSyDUUGll9Sjhw142PBc1KhShXSUUN59iI2Y",
         authDomain: "simulador-7af44.firebaseapp.com",
@@ -116,12 +118,17 @@
     const database = firebase.database();
     const auth = firebase.auth();
 
+    // Mapeo de correos a galpones (solo operadores, el monitor tiene su propia página)
     const emailToGalpon = {
-        "galpon1@daka.com": 1, "galpon2@daka.com": 2, "galpon3@daka.com": 3, "galpon4@daka.com": 4,
-        "admin@daka.com": "admin", "monitor@daka.com": "monitor"
+        "galpon1@daka.com": 1,
+        "galpon2@daka.com": 2,
+        "galpon3@daka.com": 3,
+        "galpon4@daka.com": 4,
+        "admin@daka.com": "admin",
+        "monitor@daka.com": "monitor"
     };
 
-    // ---------- VARIABLES GLOBALES ----------
+    // ---------- VARIABLES GLOBALES (las mismas que en tu capa3.html) ----------
     let camionesEnEspera = [];
     let camionesEnAnden = [];
     let camionesEnRuta = [];
@@ -130,32 +137,49 @@
     let timerIntervals = {};
     let idleIntervals = {};
     let dbFlota = [];
-    let galponActual = null;
-
+    let galponActual = null;  // se asigna tras login
     let rcaPendingAction = null;
     let rcaCamionContext = null;
 
-    // ---------- FUNCIONES AUXILIARES ----------
+    // ---------- FUNCIONES AUXILIARES (todas las que ya tenías) ----------
     function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])); }
     function formatoDiaHora(isoString) { if (!isoString) return '--:--'; let d = new Date(isoString); let dia = d.toLocaleDateString('es-VE', { weekday: 'short' }).toUpperCase(); let hora = d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', hour12: true }); return `${dia} ${hora}`; }
     function formatoFechaCorta(isoString) { if (!isoString) return '--/--/----'; let d = new Date(isoString); return d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
     function parseTiempoAnden(valor) { if (!valor) return 60; let str = String(valor).toLowerCase().trim(); if (str.includes('hora')) { let match = str.match(/(\d+(?:\.\d+)?)/); if (match) return Math.round(parseFloat(match[1]) * 60); } let match = str.match(/(\d+)/); return match ? parseInt(match[1]) : 60; }
 
-    // ---------- PERSISTENCIA EN FIREBASE ----------
-    async function guardarTodo() {
+    // ---------- FUNCIONES DE PERSISTENCIA EN FIREBASE (preservando toda la lógica) ----------
+    async function guardarEstadoGlobal() {
+        // Guardado local por si acaso
+        localStorage.setItem('yms_monitor_data', JSON.stringify(camionesEnEspera));
+        localStorage.setItem('yms_en_anden', JSON.stringify(camionesEnAnden));
+        localStorage.setItem('yms_en_ruta', JSON.stringify(camionesEnRuta));
+        localStorage.setItem('yms_historial_patio', JSON.stringify(historialOperacion));
+        // Guardar en Firebase
         await database.ref('patio/cola').set(camionesEnEspera).catch(e => console.warn);
-        const objAndenes = {};
-        camionesEnAnden.forEach(c => { if (c.puertaAsignada) { let [g, p] = c.puertaAsignada.split('-'); if (!objAndenes[g]) objAndenes[g] = {}; objAndenes[g][p] = c; } });
-        await database.ref('patio/andenes').set(objAndenes).catch(e => console.warn);
+        // Guardar andenes en estructura anidada (G1/P1, etc.)
+        const andenesObj = {};
+        camionesEnAnden.forEach(cam => {
+            if (cam.puertaAsignada) {
+                const [g, p] = cam.puertaAsignada.split('-');
+                if (!andenesObj[g]) andenesObj[g] = {};
+                andenesObj[g][p] = cam;
+            }
+        });
+        await database.ref('patio/andenes').set(andenesObj).catch(e => console.warn);
         await database.ref('patio/enRuta').set(camionesEnRuta).catch(e => console.warn);
         await database.ref('patio/historial').set(historialOperacion).catch(e => console.warn);
         actualizarKPIs();
     }
 
-    // ---------- CARGA INICIAL ----------
-    async function cargarDatos() {
+    // Carga inicial desde Firebase (usado tras login)
+    async function cargarDatosIniciales() {
         const snapCola = await database.ref('patio/cola').once('value');
         camionesEnEspera = snapCola.val() || [];
+        camionesEnEspera.forEach(c => {
+            if (!c.estatusLogistico) c.estatusLogistico = 'DISPONIBLE EN PATIO';
+            if (!c.yardJockey) c.yardJockey = 'Sin Asignar';
+            if (!c.llegadaProgramada) c.llegadaProgramada = new Date().toISOString();
+        });
         const snapAndenes = await database.ref('patio/andenes').once('value');
         const obj = snapAndenes.val() || {};
         camionesEnAnden = [];
@@ -167,10 +191,16 @@
         renderizarCola();
         renderizarRuta();
         construirGalpones();
+        // Restaurar temporizadores de andenes (si los hay)
+        camionesEnAnden.forEach(cam => {
+            if (cam.puertaAsignada && cam.puertaAsignada.startsWith(`G${galponActual}`)) {
+                restaurarAndenDOM(cam);
+            }
+        });
         actualizarKPIs();
     }
 
-    // ---------- RENDERIZADO DE COLA ----------
+    // ---------- RENDERIZADO (igual que original, adaptado para solo un galpón) ----------
     function renderizarCola() {
         const container = document.getElementById('queue-list');
         if (!container) return;
@@ -236,7 +266,7 @@
         });
     }
 
-    // ---------- CONSTRUCCIÓN DE GALPONES ----------
+    // Construye SOLO las puertas del galpón del operador
     function construirGalpones() {
         const yard = document.getElementById('yard-panel');
         if (!yard) return;
@@ -261,6 +291,7 @@
         }
         col.appendChild(doorsContainer);
         yard.appendChild(col);
+        // Restaurar camiones activos solo de este galpón
         camionesEnAnden.forEach(camion => {
             if (camion.puertaAsignada && camion.puertaAsignada.startsWith(`G${galponActual}`)) {
                 restaurarAndenDOM(camion);
@@ -268,6 +299,7 @@
         });
     }
 
+    // Restaurar andén (temporizadores, botones) - copia exacta de tu función original
     function restaurarAndenDOM(camion) {
         const doorId = camion.puertaAsignada;
         const doorDiv = document.getElementById(doorId);
@@ -325,25 +357,27 @@
                     abrirRCA(camion, 'Demora del Yard Jockey al Estacionar (> 15 min)', () => {
                         camion.idleJustificado = true;
                         doorDiv.classList.remove('retraso');
-                        guardarTodo();
+                        guardarEstadoGlobal();
                     });
                 }
             }, 60000);
         }
     }
 
-    // ---------- LÓGICA DE ANDEN ----------
+    // Lógica de ingreso a andén (validaciones Poka-Yoke, tiempos, etc.) – íntegra
     function verificarIngresoAnden(doorId) {
         if (!camionSeleccionado) return alert("Selecciona un vehículo de la fila.");
+        // Validar que la puerta pertenezca al galpón del operador
+        if (!doorId.startsWith(`G${galponActual}`)) {
+            return alert("No tienes permisos para operar en este galpón.");
+        }
         if (camionSeleccionado.bloqueadoSLA) return alert("⛔ ACCIÓN DENEGADA: El vehículo superó el tiempo máximo de mantenimiento. Registre RCA.");
         if (camionSeleccionado.estatusLogistico !== 'DISPONIBLE EN PATIO') return alert(`⛔ Vehículo en "${camionSeleccionado.estatusLogistico}". Finalice esa tarea.`);
-        // Validación de orden de pauta
         const galponDestino = doorId.split('-')[0];
         const galponEsperado = camionSeleccionado.secuencia.split('➔')[0].trim();
         const numPuerta = galponDestino.replace(/\D/g, '');
         const numSecuencia = galponEsperado.replace(/\D/g, '');
         if (numSecuencia && numPuerta !== numSecuencia) return alert(`⛔ ERROR POKA-YOKE: El vehículo debe ir al Galpón ${numSecuencia} primero.`);
-        // Orden cronológico
         let isFirstInLine = true;
         for (let i=0; i<camionesEnEspera.length; i++) {
             if (new Date(camionesEnEspera[i].llegadaProgramada) < new Date(camionSeleccionado.llegadaProgramada)) {
@@ -354,7 +388,7 @@
             alert("⛔ POKA-YOKE: ORDEN DE PAUTA. Debe justificar con RCA.");
             abrirRCA(camionSeleccionado, 'Alteración de Secuencia (Salto de Pauta)', () => {
                 camionSeleccionado.saltoPautaJustificado = true;
-                guardarTodo();
+                guardarEstadoGlobal();
                 verificarIngresoAnden(doorId);
             });
             return;
@@ -366,7 +400,7 @@
         if (difMinutos > 5 && !camionSeleccionado.retrasoLlegadaJustificado) {
             abrirRCA(camionSeleccionado, 'Retraso de Presentación en Andén', () => {
                 camionSeleccionado.retrasoLlegadaJustificado = true;
-                guardarTodo();
+                guardarEstadoGlobal();
                 procesarIngresoAnden(doorId);
             });
         } else {
@@ -394,7 +428,7 @@
         camionSeleccionado = null;
         restaurarAndenDOM(camionParaDOM);
         renderizarCola();
-        await guardarTodo();
+        await guardarEstadoGlobal();
     }
 
     function iniciarCarga(doorId) {
@@ -411,7 +445,7 @@
         if (btnDispatch) btnDispatch.classList.remove('btn-disabled');
         if (btnReversar) btnReversar.style.display = 'none';
         camion.estado = `CARGANDO (${doorId})`;
-        guardarTodo();
+        guardarEstadoGlobal();
         restaurarAndenDOM(camion);
     }
 
@@ -464,7 +498,7 @@
         }
         renderizarCola();
         renderizarRuta();
-        await guardarTodo();
+        await guardarEstadoGlobal();
     }
 
     function intentarReversarAnden(doorId) {
@@ -495,7 +529,7 @@
             document.getElementById(`content-${doorId}`).innerHTML = `<div class="empty-text" onclick="verificarIngresoAnden('${doorId}')">Clic para llamar a Andén</div>`;
         }
         renderizarCola();
-        await guardarTodo();
+        await guardarEstadoGlobal();
         alert(`✅ Reverso exitoso. ${camion.flota} regresó a la cola.`);
     }
 
@@ -508,14 +542,14 @@
             camionesEnRuta.splice(index, 1);
             camion.fechaEjecucion = camion.retornoReal;
             historialOperacion.push(camion);
-            await guardarTodo();
+            await guardarEstadoGlobal();
             renderizarRuta();
             actualizarKPIs();
             alert(`✅ Retorno registrado. Viaje: ${camion.duracionViajeHoras} horas.`);
         }
     }
 
-    // ---------- MODALES ESTATUS, RCA, REPORTES ----------
+    // ---------- MODALES ESTATUS, RCA, REPORTES (íntegros) ----------
     function abrirModalEstatus(idx, event) {
         event.stopPropagation();
         const camion = camionesEnEspera[idx];
@@ -547,7 +581,7 @@
         camion.yardJockey = jockey;
         document.getElementById('modal-estatus').style.display = 'none';
         renderizarCola();
-        await guardarTodo();
+        await guardarEstadoGlobal();
     }
     function abrirRCAAlistamiento(idx, event) {
         event.stopPropagation();
@@ -558,7 +592,7 @@
             camion.slaEstatus = null;
             camion.estatusLogistico = 'DISPONIBLE EN PATIO';
             renderizarCola();
-            await guardarTodo();
+            await guardarEstadoGlobal();
         });
     }
 
@@ -586,7 +620,7 @@
         if (rcaPendingAction) await rcaPendingAction();
         rcaCamionContext = null;
         rcaPendingAction = null;
-        await guardarTodo();
+        await guardarEstadoGlobal();
     }
 
     function actualizarKPIs() {
@@ -619,7 +653,7 @@
         if (!tbody) return;
         tbody.innerHTML = '';
         if (historialOperacion.length === 0) {
-            tbody.innerHTML = '<tr><td colspan="16" style="text-align: center;">No hay despachos finalizados aún. <tr> </tr>';
+            tbody.innerHTML = '<tr><td colspan="16" style="text-align: center;">No hay despachos finalizados aún. </td> </tr>';
         } else {
             historialOperacion.forEach(h => {
                 let txtLlegada = 'N/A', classLlegada = '', txtCarga = 'N/A', classCarga = '';
@@ -650,8 +684,7 @@
                     <td class="${classLlegada}">${txtLlegada}</td>
                     <td>${minCargaProg} min</td><td>${minCargaReal} min</td>
                     <td class="${classCarga}">${txtCarga}</td>
-                    <td>${salidaTxt}</td>
-                    <td>${retornoTxt}</td>
+                    <td>${salidaTxt}</td><td>${retornoTxt}</td>
                     <td style="color:var(--accent-blue);"><b>${durViaje}</b></td>
                     <td>${txtRca}</td>
                 </tr>`;
@@ -659,7 +692,6 @@
         }
         document.getElementById('modal-reporte').style.display = 'flex';
     }
-
     function cerrarModalReporte() { document.getElementById('modal-reporte').style.display = 'none'; }
     function exportarExcelRCA() {
         const wb = XLSX.utils.table_to_book(document.getElementById('tabla-historico'), { sheet: "Mineria_Procesos" });
@@ -682,11 +714,11 @@
         renderizarRuta();
         actualizarKPIs();
         cerrarModalReporte();
-        guardarTodo();
+        guardarEstadoGlobal();
         alert("✅ Base de datos purgada.");
     }
 
-    // ---------- CARGAR PLAN DESDE LOCALSTORAGE / EXCEL ----------
+    // ---------- CARGAR PLAN DESDE LOCALSTORAGE (para el planificador) ----------
     async function cargarDesdeLocalStorage() {
         const data = localStorage.getItem('yms_monitor_data');
         if (!data) return alert("No hay plan en localStorage.");
@@ -694,7 +726,7 @@
         try { viajes = JSON.parse(data); } catch(e) { return alert("Error al leer datos"); }
         if (!viajes.length) return alert("Plan vacío.");
         camionesEnEspera = viajes;
-        await guardarTodo();
+        await guardarEstadoGlobal();
         renderizarCola();
         alert(`✅ ${viajes.length} viajes cargados.`);
     }
@@ -730,19 +762,21 @@
             }
             if (!viajes.length) return alert("No se encontraron viajes válidos.");
             camionesEnEspera = viajes;
-            await guardarTodo();
+            await guardarEstadoGlobal();
             renderizarCola();
             alert(`✅ ${viajes.length} viajes importados.`);
         };
         reader.readAsArrayBuffer(file);
     }
 
-    // ---------- INTERFAZ PRINCIPAL ----------
+    // ---------- INTERFAZ PRINCIPAL (se llama tras login) ----------
     async function mostrarInterfaz(galpon) {
         galponActual = galpon;
+        // Cargar maestros (desde localStorage) para tiempos de carga
         const maestrosData = JSON.parse(localStorage.getItem('yms_maestros_data'));
         if (maestrosData && maestrosData.Flota_Configurada) dbFlota = maestrosData.Flota_Configurada;
-        await cargarDatos();
+        await cargarDatosIniciales();
+        // Construir el DOM
         document.getElementById('app').innerHTML = `
             <div class="header">
                 <div class="header-left">
@@ -779,23 +813,30 @@
             <div class="modal-overlay" id="modal-reporte"><div class="modal-content large"><div style="display:flex; justify-content:space-between;"><h3 style="color:var(--accent-blue);">📊 LÍNEA DE TIEMPO Y AUDITORÍA</h3><div><button class="btn-proyectar" style="background:#64748b;" onclick="limpiarHistorial()">🗑️ Borrar Datos</button><button class="btn-proyectar" style="background:var(--green);" onclick="exportarExcelRCA()">⬇️ Exportar Excel</button><button class="btn-proyectar" style="background:var(--red);" onclick="cerrarModalReporte()">✖ Cerrar</button></div></div><div class="table-wrap"><table id="tabla-historico"><thead><tr><th>Fecha</th><th>ID Viaje</th><th>Flota / YJ</th><th>Destino</th><th>Docs SAP</th><th>Puerta</th><th>Llegada Prog.</th><th>Llegada Real</th><th>Dif. Llegada</th><th>Carga Prog.</th><th>Carga Real</th><th>Dif. Carga</th><th>Salida CDD</th><th>Retorno</th><th>Dur. Viaje</th><th>Causa Raíz</th></tr></thead><tbody id="tb-historico"></tbody></table></div></div></div>
         `;
         setInterval(() => { let c = document.getElementById('main-clock'); if (c) c.innerText = new Date().toLocaleTimeString(); }, 1000);
-        // Listeners en tiempo real para mantener sincronización multi-usuario
-        database.ref('patio/cola').on('value', snap => { camionesEnEspera = snap.val() || []; renderizarCola(); });
-        database.ref('patio/andenes').on('value', snap => {
+        // Listeners en tiempo real para sincronizar con otros operadores
+        database.ref('patio/cola').on('value', async (snap) => { camionesEnEspera = snap.val() || []; renderizarCola(); });
+        database.ref('patio/andenes').on('value', async (snap) => {
             const obj = snap.val() || {};
             const lista = [];
             for (let g in obj) for (let p in obj[g]) if (obj[g][p]) lista.push(obj[g][p]);
             camionesEnAnden = lista;
-            construirGalpones();
+            construirGalpones(); // reconstruye solo el galpón actual
+            // Restaurar temporizadores de los camiones activos en este galpón
+            camionesEnAnden.forEach(cam => {
+                if (cam.puertaAsignada && cam.puertaAsignada.startsWith(`G${galponActual}`)) {
+                    restaurarAndenDOM(cam);
+                }
+            });
         });
-        database.ref('patio/enRuta').on('value', snap => { camionesEnRuta = snap.val() || []; renderizarRuta(); });
-        database.ref('patio/historial').on('value', snap => { historialOperacion = snap.val() || []; actualizarKPIs(); });
+        database.ref('patio/enRuta').on('value', (snap) => { camionesEnRuta = snap.val() || []; renderizarRuta(); });
+        database.ref('patio/historial').on('value', (snap) => { historialOperacion = snap.val() || []; actualizarKPIs(); });
         construirGalpones();
         renderizarCola();
         renderizarRuta();
         actualizarKPIs();
     }
 
+    // ---------- LOGIN Y AUTENTICACIÓN ----------
     function mostrarLogin() {
         document.getElementById('app').innerHTML = `
             <div class="login-container">
