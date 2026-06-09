@@ -13,7 +13,6 @@
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg-dark); color: var(--text-main); margin: 0; padding: 10px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
         .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #000; border-bottom: 2px solid var(--accent-blue); margin-bottom: 10px; }
         .header-left { display: flex; align-items: center; gap: 20px; }
-        .logo-img { height: 60px; object-fit: contain; }
         .header h1 { margin: 0; font-size: 1.4em; letter-spacing: 2px; color: var(--accent-blue); text-transform: uppercase; }
         .clock { font-size: 1.5em; font-weight: bold; color: var(--yellow); font-family: monospace; }
         .main-container { display: flex; gap: 15px; flex: 1; overflow: hidden; margin-bottom: 10px; }
@@ -96,7 +95,6 @@
 <body>
 <div id="app"></div>
 <script>
-    // Configuración Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyDUUGll9Sjhw142PBc1KhShXSUUN59iI2Y",
         authDomain: "simulador-7af44.firebaseapp.com",
@@ -121,7 +119,6 @@
         "monitor@daka.com": "monitor"
     };
 
-    // Variables globales
     let camionesEnEspera = [];
     let camionesEnAnden = [];
     let camionesEnRuta = [];
@@ -131,23 +128,16 @@
     let idleIntervals = {};
     let galponActual = null;
 
-    // Funciones auxiliares
     function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, function(m){ if(m==='&') return '&amp;'; if(m==='<') return '&lt;'; if(m==='>') return '&gt;'; return m;}); }
     function formatoDiaHora(iso) { if(!iso) return '--:--'; const d=new Date(iso); return d.toLocaleTimeString('es-VE',{hour:'2-digit',minute:'2-digit'}); }
     function formatoFechaCorta(iso) { if(!iso) return '--/--/----'; const d=new Date(iso); return d.toLocaleDateString('es-VE',{day:'2-digit',month:'2-digit',year:'numeric'}); }
-    function formatNumber(n) { return new Intl.NumberFormat('es-VE', {minimumFractionDigits:2, maximumFractionDigits:2}).format(n); }
 
-    // Firebase listeners
     function iniciarListeners() {
         database.ref('patio/cola').on('value', snap => { camionesEnEspera = snap.val() || []; renderizarCola(); });
         database.ref('patio/andenes').on('value', snap => {
             const obj = snap.val() || {};
             const lista = [];
-            for (let g in obj) {
-                for (let p in obj[g]) {
-                    if (obj[g][p]) lista.push(obj[g][p]);
-                }
-            }
+            for (let g in obj) for (let p in obj[g]) if (obj[g][p]) lista.push(obj[g][p]);
             camionesEnAnden = lista;
             renderizarGalpones();
         });
@@ -155,7 +145,6 @@
         database.ref('patio/historial').on('value', snap => { historialOperacion = snap.val() || []; actualizarKPIs(); });
     }
 
-    // Renderizado
     function renderizarCola() {
         const container = document.getElementById('queue-list');
         if (!container) return;
@@ -233,11 +222,8 @@
         }
         col.appendChild(doorsContainer);
         yard.appendChild(col);
-        // Restaurar camiones activos en este galpón
         camionesEnAnden.forEach(camion => {
-            if (camion.puertaAsignada && camion.puertaAsignada.startsWith(`G${galponActual}`)) {
-                restaurarAndenDOM(camion);
-            }
+            if (camion.puertaAsignada && camion.puertaAsignada.startsWith(`G${galponActual}`)) restaurarAndenDOM(camion);
         });
     }
 
@@ -281,9 +267,7 @@
                 if (mins >= camion.tiempoProgCarga) {
                     doorDiv.classList.add('retraso');
                     doorDiv.querySelector('.status-indicator').innerText = '⛔ RETRASO';
-                } else if (mins >= camion.tiempoProgCarga * 0.8) {
-                    timerSpan.classList.add('warning');
-                }
+                } else if (mins >= camion.tiempoProgCarga * 0.8) timerSpan.classList.add('warning');
             }, 1000);
         } else {
             if (idleIntervals[doorId]) clearInterval(idleIntervals[doorId]);
@@ -300,12 +284,8 @@
         }
     }
 
-    // Acciones principales
     function verificarIngresoAnden(doorId) {
-        if (!doorId.startsWith(`G${galponActual}`)) {
-            alert("No tienes permisos para operar en otro galpón.");
-            return;
-        }
+        if (!doorId.startsWith(`G${galponActual}`)) return alert("No tienes permisos para operar en otro galpón.");
         if (!camionSeleccionado) return alert("Selecciona un vehículo de la fila.");
         procesarIngresoAnden(doorId);
     }
@@ -345,8 +325,7 @@
         database.ref(`patio/andenes/${galpon}/${puerta}`).once('value', snap => {
             const camion = snap.val();
             if (!camion || !camion.inicioCargaReal) return alert("Debe iniciar la carga primero.");
-            const finCarga = Date.now();
-            const minutosCarga = Math.floor((finCarga - camion.inicioCargaReal) / 60000);
+            const minutosCarga = Math.floor((Date.now() - camion.inicioCargaReal) / 60000);
             camion.tiempoRealCarga = minutosCarga;
             if (minutosCarga > camion.tiempoProgCarga) {
                 abrirRCA(camion, 'Retraso Operativo en Andén (Exceso de Tiempo de Carga)', () => procesarDespacho(doorId, camion));
@@ -401,9 +380,7 @@
         database.ref(`patio/andenes/${galpon}/${puerta}`).set(camion);
     }
 
-    // RCA y modales
-    let rcaPendingAction = null;
-    let rcaCamionContext = null;
+    let rcaPendingAction = null, rcaCamionContext = null;
     function abrirRCA(camion, fase, callback) {
         rcaCamionContext = camion;
         rcaPendingAction = callback;
@@ -422,14 +399,9 @@
         rcaCamionContext.incidencias.push(`[${document.getElementById('rca-fase').value}] ${motivo} - ${obs}`);
         document.getElementById('modal-rca').style.display = 'none';
         if(rcaPendingAction) rcaPendingAction();
-        rcaCamionContext = null;
-        rcaPendingAction = null;
+        rcaCamionContext = null; rcaPendingAction = null;
     }
-    function cancelarRCA() {
-        document.getElementById('modal-rca').style.display = 'none';
-        rcaCamionContext = null;
-        rcaPendingAction = null;
-    }
+    function cancelarRCA() { document.getElementById('modal-rca').style.display = 'none'; rcaCamionContext = null; rcaPendingAction = null; }
 
     function abrirModalEstatus(idx, event) {
         event.stopPropagation();
@@ -467,7 +439,7 @@
             tbody.innerHTML = '<tr><td colspan="16">No hay despachos finalizados aún. </td> </tr>';
         } else {
             historialOperacion.forEach(h => {
-                const row = `<tr>
+                tbody.innerHTML += `<tr>
                     <td>${formatoFechaCorta(h.fechaEjecucion)}</td>
                     <td>${h.idViaje || 'N/A'}</td>
                     <td>${escapeHtml(h.flota)}</td>
@@ -485,7 +457,6 @@
                     <td>${h.duracionViajeHoras ? h.duracionViajeHoras+' hrs' : 'N/A'}</td>
                     <td>${h.incidencias ? h.incidencias.join(' | ') : 'Sin incidencias'}</td>
                 </tr>`;
-                tbody.innerHTML += row;
             });
         }
         modal.style.display = 'flex';
@@ -493,7 +464,6 @@
     function cerrarModalReporte() { document.getElementById('modal-reporte').style.display = 'none'; }
     function abrirMonitorTV() { window.open('monitor_tv.html', '_blank'); }
 
-    // Interfaz principal después del login
     function mostrarInterfaz(galpon) {
         galponActual = galpon;
         document.getElementById('app').innerHTML = `
@@ -541,13 +511,9 @@
         `;
         iniciarListeners();
         renderizarGalpones();
-        setInterval(() => {
-            const reloj = document.getElementById('main-clock');
-            if(reloj) reloj.innerText = new Date().toLocaleTimeString();
-        }, 1000);
+        setInterval(() => { const reloj = document.getElementById('main-clock'); if(reloj) reloj.innerText = new Date().toLocaleTimeString(); }, 1000);
     }
 
-    // Login y autenticación
     function mostrarLogin() {
         document.getElementById('app').innerHTML = `
             <div class="login-container">
@@ -567,21 +533,11 @@
                 .then(userCred => {
                     const user = userCred.user;
                     const galpon = emailToGalpon[user.email];
-                    if (!galpon) {
-                        document.getElementById('login-error').innerText = 'Usuario no autorizado.';
-                        auth.signOut();
-                        return;
-                    }
-                    if (galpon === 'monitor') {
-                        window.location.href = 'monitor_tv.html';
-                    } else if (galpon === 'admin') {
-                        mostrarInterfaz(1);
-                    } else if (typeof galpon === 'number') {
-                        mostrarInterfaz(galpon);
-                    } else {
-                        document.getElementById('login-error').innerText = 'Rol no válido.';
-                        auth.signOut();
-                    }
+                    if (!galpon) { document.getElementById('login-error').innerText = 'Usuario no autorizado.'; auth.signOut(); return; }
+                    if (galpon === 'monitor') { window.location.href = 'monitor_tv.html'; }
+                    else if (galpon === 'admin') { mostrarInterfaz(1); }
+                    else if (typeof galpon === 'number') { mostrarInterfaz(galpon); }
+                    else { document.getElementById('login-error').innerText = 'Rol no válido.'; auth.signOut(); }
                 })
                 .catch(err => document.getElementById('login-error').innerText = 'Error: ' + err.message);
         });
@@ -590,17 +546,10 @@
     auth.onAuthStateChanged(user => {
         if (user) {
             const galpon = emailToGalpon[user.email];
-            if (galpon === 'monitor') {
-                window.location.href = 'monitor_tv.html';
-            } else if (galpon) {
-                mostrarInterfaz(typeof galpon === 'number' ? galpon : 1);
-            } else {
-                auth.signOut();
-                mostrarLogin();
-            }
-        } else {
-            mostrarLogin();
-        }
+            if (galpon === 'monitor') { window.location.href = 'monitor_tv.html'; }
+            else if (galpon) { mostrarInterfaz(typeof galpon === 'number' ? galpon : 1); }
+            else { auth.signOut(); mostrarLogin(); }
+        } else { mostrarLogin(); }
     });
 </script>
 </body>
