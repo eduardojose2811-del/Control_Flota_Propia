@@ -1,0 +1,510 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YMS Daka - Conciliación Maestra CDD</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+    <style>
+        :root { --blue: #1F4E78; --gray: #f4f7f6; --green: #27ae60; --yellow: #f1c40f; --red: #e74c3c; --dark-red: #c0392b; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--gray); margin: 0; padding: 20px; color: #333; }
+        .container { background: #fff; padding: 25px; border-radius: 8px; max-width: 1300px; margin: auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        
+        h2 { color: var(--blue); border-bottom: 2px solid var(--blue); padding-bottom: 10px; display: flex; justify-content: space-between; align-items: center;}
+        .title-wrapper { display: flex; align-items: center; gap: 20px; }
+        .logo-img { height: 85px; object-fit: contain; }
+        .action-buttons { display: flex; gap: 15px; }
+
+        h3 { color: var(--blue); margin-top: 35px; font-size: 1.2em; border-left: 4px solid var(--blue); padding-left: 10px; background-color: #f9f9f9; padding-top: 5px; padding-bottom: 5px;}
+        
+        .upload-section { display: flex; gap: 20px; background: #e9f0f5; padding: 20px; border-radius: 8px; margin-bottom: 20px; align-items: flex-end; border-left: 5px solid var(--blue);}
+        .box { flex: 1; display: flex; flex-direction: column; gap: 10px; }
+        label { font-weight: bold; color: var(--blue); }
+        input[type="file"] { padding: 8px; border: 1px solid #ccc; border-radius: 4px; background-color: #fff;}
+        
+        button { background: var(--blue); color: white; border: none; padding: 12px 25px; border-radius: 4px; font-weight: bold; cursor: pointer; height: 45px; transition: background 0.3s;}
+        button:hover { background: #153654; }
+        
+        #btn-exportar { background: #27ae60; display: none; font-size: 1.1em; padding: 10px 20px; box-shadow: 0 4px 6px rgba(39, 174, 96, 0.3); }
+        #btn-exportar:hover { background: #1e8449; }
+
+        #btn-ir-capa2 { background: var(--blue); display: none; font-size: 1.1em; padding: 10px 30px; box-shadow: 0 4px 6px rgba(31, 78, 120, 0.3); animation: pulse 2s infinite; }
+        #btn-ir-capa2:hover { background: #153654; }
+        
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.03); } 100% { transform: scale(1); } }
+
+        .dash-grid { display: grid; grid-template-columns: 1fr 2fr; gap: 20px; }
+        .card { border: 1px solid #ddd; border-radius: 6px; padding: 15px; }
+        .card-header { font-weight: bold; background: var(--blue); color: white; padding: 10px; border-radius: 4px 4px 0 0; margin: -15px -15px 15px -15px; }
+        
+        table { width: 100%; border-collapse: collapse; font-size: 13px; }
+        th, td { padding: 8px; text-align: center; border: 1px solid #ddd; }
+        th { background: var(--blue); color: white; }
+        tfoot th { background: #153654; font-size: 1.1em; color: white; }
+        
+        .table-wrap { max-height: 400px; overflow-y: auto; margin-top: 10px; border: 1px solid #ddd; border-radius: 4px;}
+        thead th, tfoot th { position: sticky; z-index: 3; }
+        thead tr:nth-child(1) th { top: 0; } 
+        thead tr:nth-child(2) th { top: 35px; background-color: #2980b9; } 
+        tfoot th { bottom: 0; }
+        tr:hover { background: #f1f5f8; }
+
+        .filter-input { width: 100%; box-sizing: border-box; padding: 5px; font-size: 11px; border: 1px solid #ccc; border-radius: 3px; text-align: center;}
+        .status { padding: 5px 10px; border-radius: 12px; font-weight: bold; font-size: 0.85em; display: inline-block;}
+        .status-green { background-color: rgba(46, 204, 113, 0.2); color: #27ae60; }
+        .status-yellow { background-color: rgba(241, 196, 15, 0.2); color: #d35400; }
+        .status-red { background-color: rgba(231, 76, 60, 0.2); color: #c0392b; }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>
+            <div class="title-wrapper">
+                <img src="LOGO_DAKA.png" alt="Logo Daka" class="logo-img" onerror="this.style.display='none'">
+                <span>Motor YMS - Validación Volumétrica y Picking</span>
+            </div>
+            <div class="action-buttons">
+                <button id="btn-exportar" onclick="exportarExcelCapa1()">⬇️ Exportar Auditoría</button>
+                <button id="btn-ir-capa2" onclick="avanzarACapa2()">Simular Ruteo (Capa 2) ➔</button>
+            </div>
+        </h2>
+        
+        <div class="upload-section">
+            <div class="box">
+                <label>1. Cargar "Inventario Disponible CDD"</label>
+                <input type="file" id="fileInv" accept=".xlsx, .xls, .csv">
+            </div>
+            <div class="box">
+                <label>2. Cargar "Pedidos Abiertos"</label>
+                <input type="file" id="filePed" accept=".xlsx, .xls, .csv">
+            </div>
+            <button onclick="procesarArchivos()">Validar Volumetría</button>
+        </div>
+
+        <div class="dash-grid">
+            <div class="card">
+                <div class="card-header">1. Capacidad CDD (Solo SKUs Requeridos)</div>
+                <table id="tabla-seccion-1">
+                    <thead><tr><th>Galpón</th><th>Stock Útil (m³)</th></tr></thead>
+                    <tbody id="tb-galpones"><tr><td colspan="2">Sin datos</td></tr></tbody>
+                    <tfoot id="tf-galpones"></tfoot>
+                </table>
+            </div>
+
+            <div class="card">
+                <div class="card-header">2. Conciliación Global (Data Auditada)</div>
+                <table id="tabla-global">
+                    <thead><tr><th>Métrica Operativa</th><th>Unidades (Und)</th><th>Volumen Físico (m³)</th></tr></thead>
+                    <tbody id="tb-global">
+                        <tr><td><b>Demanda Neta Solicitada</b></td><td id="g-dem-u" data-excel-num="0">0</td><td id="g-dem-m" data-excel-num="0" style="color:var(--red); font-weight:bold; font-size: 1.2em;">0.00</td></tr>
+                        <tr><td><b>Stock Aprobado para Despacho</b></td><td id="g-asig-u" data-excel-num="0">0</td><td id="g-asig-m" data-excel-num="0" style="color:var(--green); font-weight:bold; font-size: 1.2em;">0.00</td></tr>
+                        <tr><td><b>Diferencia (Quiebre / Backorder)</b></td><td id="g-dif-u" data-excel-num="0">0</td><td id="g-dif-m" data-excel-num="0">0.00</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <h3 style="color: var(--red); border-left-color: var(--red);">Cuarentena: SKUs con Data Sucia en ERP (Volumen 0)</h3>
+        <div class="table-wrap" style="max-height: 250px; border-color: var(--red);">
+            <table id="tabla-cuarentena">
+                <thead>
+                    <tr style="background-color: var(--red);">
+                        <th style="background-color: var(--red);">Tienda Destino</th>
+                        <th style="background-color: var(--red);">Código SKU</th>
+                        <th style="background-color: var(--red);">Und. a Despachar</th>
+                        <th style="background-color: var(--red);">m³ en ERP</th>
+                        <th style="background-color: var(--red);">M³ Sugerido (Maestro)</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th style="background-color: var(--dark-red);"><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-cuarentena', this)"></th>
+                        <th style="background-color: var(--dark-red);"><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-cuarentena', this)"></th>
+                        <th style="background-color: var(--dark-red);"><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-cuarentena', this)"></th>
+                        <th style="background-color: var(--dark-red);"><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-cuarentena', this)"></th>
+                        <th style="background-color: var(--dark-red);"><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-cuarentena', this)"></th>
+                    </tr>
+                </thead>
+                <tbody id="tb-cuarentena"><tr><td colspan="5">Sistema limpio</td></tr></tbody>
+            </table>
+        </div>
+
+        <h3>3. Resumen por Tienda (Payload para Transporte)</h3>
+        <div class="table-wrap">
+            <table id="tabla-seccion-3">
+                <thead>
+                    <tr>
+                        <th>#</th>
+                        <th>Tienda (Sucursal)</th>
+                        <th>Demanda Pendiente (Und)</th>
+                        <th>Volumen Solicitado (m³)</th>
+                        <th>Unidades Asignadas</th>
+                        <th>Volumen Asignado (m³)</th>
+                        <th>Estatus de Stock</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th></th> <th><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-tiendas', this)"></th>
+                        <th><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-tiendas', this)"></th>
+                        <th><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-tiendas', this)"></th>
+                        <th><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-tiendas', this)"></th>
+                        <th><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-tiendas', this)"></th>
+                        <th><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-tiendas', this)"></th>
+                    </tr>
+                </thead>
+                <tbody id="tb-tiendas"><tr><td colspan="7">Sin datos</td></tr></tbody>
+                <tfoot id="tf-tiendas"></tfoot>
+            </table>
+        </div>
+
+        <h3>4. Detalle de Picking y Cobertura por SKU</h3>
+        <div class="table-wrap" style="max-height: 500px;">
+            <table id="tabla-seccion-4">
+                <thead>
+                    <tr>
+                        <th>Galpón</th>
+                        <th>Código SKU</th>
+                        <th>Und. Solicitadas</th>
+                        <th>Und. Disponibles</th>
+                        <th>m³ Solicitados</th>
+                        <th>m³ Disponibles</th>
+                        <th>Estatus del SKU</th>
+                    </tr>
+                    <tr class="filter-row">
+                        <th><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-sku', this)"></th>
+                        <th><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-sku', this)"></th>
+                        <th><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-sku', this)"></th>
+                        <th><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-sku', this)"></th>
+                        <th><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-sku', this)"></th>
+                        <th><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-sku', this)"></th>
+                        <th><input type="text" class="filter-input" onkeyup="aplicarFiltros('tb-sku', this)"></th>
+                    </tr>
+                </thead>
+                <tbody id="tb-sku"><tr><td colspan="7">Sin datos</td></tr></tbody>
+                <tfoot id="tf-sku"></tfoot>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        let dbPed = [], dbInv = [];
+
+        function fmt(n) { return new Intl.NumberFormat('es-VE').format(n); }
+        function fmt2(n) { return new Intl.NumberFormat('es-VE', {minimumFractionDigits: 2, maximumFractionDigits: 2}).format(n); }
+
+        function recalcularTotales(tbodyId) {
+            let tbody = document.getElementById(tbodyId);
+            if (!tbody) return;
+            let filas = tbody.querySelectorAll('tr');
+            
+            if (tbodyId === 'tb-tiendas') {
+                let sDemU = 0, sDemM = 0, sAsiU = 0, sAsiM = 0, count = 0;
+                filas.forEach(f => {
+                    if (f.style.display !== 'none' && f.cells.length > 1) {
+                        sDemU += parseFloat(f.cells[2].getAttribute('data-excel-num')) || 0;
+                        sDemM += parseFloat(f.cells[3].getAttribute('data-excel-num')) || 0;
+                        sAsiU += parseFloat(f.cells[4].getAttribute('data-excel-num')) || 0;
+                        sAsiM += parseFloat(f.cells[5].getAttribute('data-excel-num')) || 0;
+                        count++;
+                    }
+                });
+                let tfoot = document.getElementById('tf-tiendas');
+                if(tfoot && count > 0) {
+                    tfoot.innerHTML = `<tr><th colspan="2" style="text-align:right;">TOTALES (${count} Filtros):</th><th data-excel-num="${sDemU}">${fmt(sDemU)}</th><th style="color:#ff9ff3;" data-excel-num="${sDemM.toFixed(4)}">${fmt2(sDemM)} m³</th><th data-excel-num="${sAsiU}">${fmt(sAsiU)}</th><th style="color:#2ecc71;" data-excel-num="${sAsiM.toFixed(4)}">${fmt2(sAsiM)} m³</th><th>-</th></tr>`;
+                } else if (tfoot) {
+                    tfoot.innerHTML = `<tr><th colspan="7">No hay datos visibles</th></tr>`;
+                }
+            } else if (tbodyId === 'tb-sku') {
+                let sDemU = 0, sDispU = 0, sDemM = 0, sDispM = 0, count = 0;
+                filas.forEach(f => {
+                    if (f.style.display !== 'none' && f.cells.length > 1) {
+                        sDemU += parseFloat(f.cells[2].getAttribute('data-excel-num')) || 0;
+                        sDispU += parseFloat(f.cells[3].getAttribute('data-excel-num')) || 0;
+                        sDemM += parseFloat(f.cells[4].getAttribute('data-excel-num')) || 0;
+                        sDispM += parseFloat(f.cells[5].getAttribute('data-excel-num')) || 0;
+                        count++;
+                    }
+                });
+                let tfoot = document.getElementById('tf-sku');
+                if(tfoot && count > 0) {
+                    tfoot.innerHTML = `<tr><th colspan="2" style="text-align:right;">TOTALES (${count} Filtros):</th><th data-excel-num="${sDemU}">${fmt(sDemU)}</th><th data-excel-num="${sDispU}">${fmt(sDispU)}</th><th style="color:#ff9ff3;" data-excel-num="${sDemM.toFixed(4)}">${fmt2(sDemM)} m³</th><th style="color:#2ecc71;" data-excel-num="${sDispM.toFixed(4)}">${fmt2(sDispM)} m³</th><th>-</th></tr>`;
+                } else if (tfoot) {
+                    tfoot.innerHTML = `<tr><th colspan="7">No hay datos visibles</th></tr>`;
+                }
+            }
+        }
+
+        function aplicarFiltros(tbodyId, inputElement) {
+            let tbody = document.getElementById(tbodyId);
+            let filterRow = tbody.previousElementSibling.querySelector('.filter-row');
+            let ths = filterRow.querySelectorAll('th');
+            let filas = tbody.getElementsByTagName('tr');
+            
+            for (let i = 0; i < filas.length; i++) {
+                let mostrar = true; 
+                let celdas = filas[i].getElementsByTagName('td');
+                if (celdas.length === 1) continue; 
+                for (let j = 0; j < ths.length; j++) {
+                    let input = ths[j].querySelector('.filter-input');
+                    if (input) {
+                        let f = input.value.toLowerCase();
+                        if (f !== "" && celdas[j] && (celdas[j].textContent||celdas[j].innerText).toLowerCase().indexOf(f) === -1) { 
+                            mostrar = false; break; 
+                        }
+                    }
+                }
+                filas[i].style.display = mostrar ? "" : "none";
+            }
+            recalcularTotales(tbodyId);
+        }
+
+        function generarHojaExcel(tableId) {
+            let clone = document.getElementById(tableId).cloneNode(true);
+            let filterRow = clone.querySelector('.filter-row');
+            if (filterRow) filterRow.remove();
+
+            let numCells = clone.querySelectorAll('td[data-excel-num], th[data-excel-num]');
+            numCells.forEach(cell => cell.innerText = cell.getAttribute('data-excel-num'));
+
+            let ws = XLSX.utils.table_to_sheet(clone, {raw: true});
+            let range = XLSX.utils.decode_range(ws['!ref']);
+            for(let R = range.s.r; R <= range.e.r; ++R) {
+                let headerRow = range.s.r; 
+                for(let C = range.s.c; C <= range.e.c; ++C) {
+                    let cellAddress = XLSX.utils.encode_cell({r:R, c:C});
+                    let cell = ws[cellAddress];
+                    if (!cell) continue;
+                    let headerCell = ws[XLSX.utils.encode_cell({r: headerRow, c: C})];
+                    if (!headerCell) continue;
+                    let headerText = headerCell.v.toString().toLowerCase();
+
+                    let isDecimal = headerText.includes('m³') || headerText.includes('volumen') || headerText.includes('sugerido') || headerText.includes('físico');
+                    let isEntero = headerText.includes('und') || headerText.includes('unidades') || headerText.includes('asignadas') || headerText.includes('pendiente') || headerText.includes('solicitadas') || headerText.includes('disponibles');
+
+                    if (R > headerRow && (isDecimal || isEntero)) {
+                        if (cell.t === 's' || typeof cell.v === 'string') {
+                            let parsed = parseFloat(cell.v);
+                            if (!isNaN(parsed)) { cell.v = parsed; cell.t = 'n'; }
+                        }
+                        if (cell.t === 'n') cell.z = isDecimal ? '#,##0.00' : '#,##0';
+                    }
+                }
+            }
+            return ws;
+        }
+
+        function exportarExcelCapa1() {
+            let fecha = new Date().toISOString().split('T')[0];
+            let nombreArchivo = `Auditoria_Volumetrica_CDD_${fecha}.xlsx`;
+            let wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, generarHojaExcel('tabla-global'), "Resumen_Global");
+            XLSX.utils.book_append_sheet(wb, generarHojaExcel('tabla-seccion-3'), "Asignacion_Tiendas");
+            XLSX.utils.book_append_sheet(wb, generarHojaExcel('tabla-seccion-4'), "Detalle_Picking_SKU");
+            XLSX.utils.book_append_sheet(wb, generarHojaExcel('tabla-cuarentena'), "Cuarentena_ERP");
+            XLSX.writeFile(wb, nombreArchivo);
+        }
+
+        function leerExcel(id, cb) {
+            const f = document.getElementById(id).files[0];
+            if (!f) return cb(null);
+            const r = new FileReader();
+            r.onload = e => {
+                const wb = XLSX.read(new Uint8Array(e.target.result), {type: 'array'});
+                cb(XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]]));
+            };
+            r.readAsArrayBuffer(f);
+        }
+
+        function procesarArchivos() {
+            leerExcel('fileInv', dI => {
+                if (!dI) return alert("Falta cargar Inventario."); dbInv = dI;
+                leerExcel('filePed', dP => {
+                    if (!dP) return alert("Falta cargar Pedidos."); dbPed = dP;
+                    ejecutarLogica();
+                });
+            });
+        }
+
+        function ejecutarLogica() {
+            let skusDemandados = new Set();
+            dbPed.forEach(row => {
+                let sku = (row['CODIGO'] || '').toString().trim();
+                let pedido = parseFloat(row['PEDIDO']) || 0;
+                let suministrado = parseFloat(row['SUMINISTRADO']) || 0;
+                let pendiente = pedido - suministrado;
+                if (pendiente > 0 && pedido > 0) skusDemandados.add(sku);
+            });
+
+            let stockGalpones = {}; let totalStockM3 = 0; let inventarioMemoria = {}; let skuAgregado = {}; 
+
+            dbInv.forEach(row => {
+                let galpon = row['GALPON_CDD'] || 'Sin Asignar';
+                let m3Disp = parseFloat(row['STOCK_DISPONIBLE_M3']) || 0;
+                let sku = (row['CODIGO_SAP (SKU)'] || '').toString().trim();
+                let undDisp = parseFloat(row['CANTIDAD_DISPONIBLE']) || 0;
+                let m3Unit = parseFloat(row['CUBICAJE_UNITARIO_M3']) || 0;
+
+                if(galpon !== 'Sin Asignar' && skusDemandados.has(sku)) {
+                    if(!stockGalpones[galpon]) stockGalpones[galpon] = 0;
+                    stockGalpones[galpon] += m3Disp; 
+                    totalStockM3 += m3Disp;
+                }
+                if(sku) {
+                    inventarioMemoria[sku] = { stock: undDisp, m3u: m3Unit, galpon: galpon };
+                    skuAgregado[sku] = { galpon: galpon, dispU: undDisp, dispM3: m3Disp, demU: 0, demM3: 0, m3Unitario: m3Unit };
+                }
+            });
+
+            let totalDemandaUnd = 0, totalDemandaM3 = 0, totalAsignadoUnd = 0, totalAsignadoM3 = 0;
+            let resumenTiendas = {};
+            let htmlCuarentena = '';
+
+            dbPed.forEach(row => {
+                let tienda = (row['TIENDA'] || '').replace(/\u00A0/g, ' ').trim();
+                let sku = (row['CODIGO'] || '').toString().trim();
+                let pedido = parseFloat(row['PEDIDO']) || 0;
+                let suministrado = parseFloat(row['SUMINISTRADO']) || 0;
+                let pendiente = pedido - suministrado;
+                
+                // EXTRACCIÓN DE FECHA Y DOCUMENTO PARA EL SISTEMA FIFO
+                let fechaSAP = row['FECHA'] ? String(row['FECHA']).split(' ')[0] : new Date().toISOString().split('T')[0];
+                let docSAP = (row['Documento'] || row['DOCUMENTO'] || row['Documento SAP'] || row['DOCUMENTO SAP'] || row['Pedido'] || row['PEDIDO'] || '').toString().trim();
+
+                if (pendiente > 0 && pedido > 0) {
+                    let cubTotalHistorico = parseFloat(row['CUBICAJE']) || 0;
+                    let m3UnitarioDemanda = cubTotalHistorico > 0 ? (cubTotalHistorico / pedido) : 0;
+                    let m3DemandaFisica = pendiente * m3UnitarioDemanda;
+
+                    totalDemandaUnd += pendiente; totalDemandaM3 += m3DemandaFisica;
+
+                    if(cubTotalHistorico === 0) {
+                        let itemMaestro = inventarioMemoria[sku];
+                        let m3Sugerido = (itemMaestro && itemMaestro.m3u > 0) ? itemMaestro.m3u : 0;
+                        htmlCuarentena += `<tr><td style="text-align:left;">${tienda}</td><td><b>${sku}</b></td><td data-excel-num="${pendiente}"><b style="color:var(--red);">${fmt(pendiente)} Und</b></td><td data-excel-num="0">0.00</td><td style="color:#666;" data-excel-num="${m3Sugerido.toFixed(4)}">${fmt2(m3Sugerido)}</td></tr>`;
+                    }
+
+                    if(!skuAgregado[sku]) skuAgregado[sku] = { galpon: 'No en CDD', dispU: 0, dispM3: 0, demU: 0, demM3: 0, m3Unitario: m3UnitarioDemanda };
+                    skuAgregado[sku].demU += pendiente; skuAgregado[sku].demM3 += m3DemandaFisica;
+
+                    let asignadoUnd = 0;
+                    let itemInv = inventarioMemoria[sku];
+                    if(itemInv && itemInv.stock > 0) {
+                        if(itemInv.stock >= pendiente) { asignadoUnd = pendiente; itemInv.stock -= pendiente; } 
+                        else { asignadoUnd = itemInv.stock; itemInv.stock = 0; }
+                    }
+
+                    let m3AsignadoFisico = asignadoUnd * m3UnitarioDemanda;
+                    totalAsignadoUnd += asignadoUnd; totalAsignadoM3 += m3AsignadoFisico;
+
+                    if(!resumenTiendas[tienda]) resumenTiendas[tienda] = { dU: 0, dM: 0, aU: 0, aM: 0, galponesAsignados: new Set(), pedidosDetalle: [] };
+                    resumenTiendas[tienda].dU += pendiente;
+                    resumenTiendas[tienda].dM += m3DemandaFisica;
+                    resumenTiendas[tienda].aU += asignadoUnd;
+                    resumenTiendas[tienda].aM += m3AsignadoFisico;
+
+                    if(asignadoUnd > 0) {
+                        if(itemInv && itemInv.galpon && itemInv.galpon !== 'No en CDD') resumenTiendas[tienda].galponesAsignados.add(itemInv.galpon);
+                        if(docSAP !== '') {
+                            resumenTiendas[tienda].pedidosDetalle.push({
+                                doc: docSAP,
+                                fecha: fechaSAP,
+                                vol: m3AsignadoFisico
+                            });
+                        }
+                    }
+                }
+            });
+
+            if (htmlCuarentena === '') htmlCuarentena = '<tr><td colspan="5">Sistema limpio</td></tr>';
+            document.getElementById('tb-cuarentena').innerHTML = htmlCuarentena;
+
+            let htmlGalpon = '';
+            Object.keys(stockGalpones).sort().forEach(g => { htmlGalpon += `<tr><td><b>${g}</b></td><td data-excel-num="${stockGalpones[g].toFixed(4)}">${fmt2(stockGalpones[g])}</td></tr>`; });
+            document.getElementById('tb-galpones').innerHTML = htmlGalpon;
+            document.getElementById('tf-galpones').innerHTML = `<tr><th>TOTAL ÚTIL CDD</th><th data-excel-num="${totalStockM3.toFixed(4)}">${fmt2(totalStockM3)} m³</th></tr>`;
+
+            document.getElementById('g-dem-u').innerText = fmt(totalDemandaUnd); document.getElementById('g-dem-u').setAttribute('data-excel-num', totalDemandaUnd);
+            document.getElementById('g-dem-m').innerText = fmt2(totalDemandaM3) + ' m³'; document.getElementById('g-dem-m').setAttribute('data-excel-num', totalDemandaM3.toFixed(4));
+            document.getElementById('g-asig-u').innerText = fmt(totalAsignadoUnd); document.getElementById('g-asig-u').setAttribute('data-excel-num', totalAsignadoUnd);
+            document.getElementById('g-asig-m').innerText = fmt2(totalAsignadoM3) + ' m³'; document.getElementById('g-asig-m').setAttribute('data-excel-num', totalAsignadoM3.toFixed(4));
+            document.getElementById('g-dif-u').innerText = fmt(totalDemandaUnd - totalAsignadoUnd); document.getElementById('g-dif-u').setAttribute('data-excel-num', totalDemandaUnd - totalAsignadoUnd);
+            document.getElementById('g-dif-m').innerText = fmt2(totalDemandaM3 - totalAsignadoM3) + ' m³'; document.getElementById('g-dif-m').setAttribute('data-excel-num', (totalDemandaM3 - totalAsignadoM3).toFixed(4));
+
+            let htmlTiendas = '';
+            let tiendasArray = Object.keys(resumenTiendas).map(k => ({ tienda: k, ...resumenTiendas[k] }));
+            tiendasArray.sort((a, b) => b.dM - a.dM);
+            
+            tiendasArray.forEach((d, index) => {
+                let estatus = d.dU === d.aU ? '<span class="status status-green">100% Cubierto</span>' : '<span class="status status-yellow">Quiebre Parcial</span>';
+                htmlTiendas += `<tr><td><b>${index + 1}</b></td><td style="text-align:left; font-weight:bold;">${d.tienda}</td><td data-excel-num="${d.dU}">${fmt(d.dU)}</td><td style="font-weight:bold; color:var(--red);" data-excel-num="${d.dM.toFixed(4)}">${fmt2(d.dM)}</td><td data-excel-num="${d.aU}">${fmt(d.aU)}</td><td style="color:var(--green); font-weight:bold;" data-excel-num="${d.aM.toFixed(4)}">${fmt2(d.aM)}</td><td>${estatus}</td></tr>`;
+            });
+            document.getElementById('tb-tiendas').innerHTML = htmlTiendas;
+
+            let agrupacionGalpones = {};
+            Object.keys(skuAgregado).forEach(sku => {
+                let data = skuAgregado[sku];
+                if(data.demU > 0) {
+                    let g = data.galpon;
+                    if(!agrupacionGalpones[g]) agrupacionGalpones[g] = [];
+                    let estatus = data.dispU === 0 ? '🔴 Quiebre Total' : (data.dispU >= data.demU ? '🟢 Cobertura Total' : '🟡 Quiebre Parcial');
+                    let colorClass = data.dispU === 0 ? 'status-red' : (data.dispU >= data.demU ? 'status-green' : 'status-yellow');
+                    agrupacionGalpones[g].push({ sku: sku, demU: data.demU, dispU: data.dispU, demM3: data.demM3, dispM3: data.dispM3, estatus: estatus, colorClass: colorClass });
+                }
+            });
+
+            let htmlSku = '';
+            Object.keys(agrupacionGalpones).sort().forEach(g => {
+                let listaSkus = agrupacionGalpones[g];
+                listaSkus.sort((a,b) => b.demM3 - a.demM3);
+                listaSkus.forEach((s, index) => {
+                    let celdaGalpon = `<td style="background-color: #e9f0f5; font-weight: bold; border-right: 2px solid var(--blue);">${g}</td>`;
+                    let borderBottom = (index === listaSkus.length - 1) ? 'border-bottom: 2px solid var(--blue);' : '';
+                    htmlSku += `<tr style="${borderBottom}">${celdaGalpon}<td><b>${s.sku}</b></td><td data-excel-num="${s.demU}">${fmt(s.demU)}</td><td data-excel-num="${s.dispU}">${fmt(s.dispU)}</td><td style="color:var(--red); font-weight:bold;" data-excel-num="${s.demM3.toFixed(4)}">${fmt2(s.demM3)}</td><td style="color:var(--green); font-weight:bold;" data-excel-num="${s.dispM3.toFixed(4)}">${fmt2(s.dispM3)}</td><td><span class="status ${s.colorClass}">${s.estatus}</span></td></tr>`;
+                });
+            });
+            document.getElementById('tb-sku').innerHTML = htmlSku;
+
+            let payloadParaCapa2 = [];
+            Object.keys(resumenTiendas).forEach(t => {
+                let dataT = resumenTiendas[t];
+                if (dataT.aM > 0) { 
+                    
+                    // CONSOLIDACIÓN FIFO DE DOCUMENTOS
+                    let docsMap = {};
+                    dataT.pedidosDetalle.forEach(pd => {
+                        if(!docsMap[pd.doc]) docsMap[pd.doc] = { doc: pd.doc, fecha: pd.fecha, vol: 0 };
+                        docsMap[pd.doc].vol += pd.vol;
+                    });
+                    // Ordena del pedido más viejo al más nuevo (Prioridad SLA)
+                    let arrDocs = Object.values(docsMap).sort((a,b) => new Date(a.fecha) - new Date(b.fecha));
+
+                    payloadParaCapa2.push({
+                        tienda: t,
+                        vol: dataT.aM,
+                        galpones: Array.from(dataT.galponesAsignados).sort(),
+                        pedidos: arrDocs
+                    });
+                }
+            });
+            localStorage.setItem('yms_payload_capa1', JSON.stringify(payloadParaCapa2));
+
+            document.getElementById('btn-exportar').style.display = 'block';
+            document.getElementById('btn-ir-capa2').style.display = 'block';
+            
+            recalcularTotales('tb-tiendas');
+            recalcularTotales('tb-sku');
+
+            alert("✅ Conciliación y Ordenamiento FIFO Exitoso.\nLa data de SAP ha sido preparada cronológicamente para la Capa 2.");
+        }
+
+        // ===============================================
+        // NUEVA FUNCIÓN: GATILLO DE AUTO-DESCARGA
+        // ===============================================
+        function avanzarACapa2() {
+            exportarExcelCapa1(); 
+            
+            setTimeout(() => {
+                window.location.href = 'capa2.html';
+            }, 800);
+        }
+    </script>
+</body>
+</html>
