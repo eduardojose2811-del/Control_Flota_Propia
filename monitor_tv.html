@@ -12,7 +12,6 @@
         body, html { margin:0; padding:0; background-color:var(--bg-color); color:var(--text-main); font-family:'Segoe UI',Arial,sans-serif; overflow:hidden; height:100vh; display:flex; flex-direction:column; }
         .header { height:12vh; display:flex; justify-content:space-between; align-items:center; padding:0 3vw; background-color:var(--header-bg); border-bottom:0.5vh solid var(--daka-yellow); }
         .logo-title { display:flex; align-items:center; gap:1.5vw; }
-        .logo-img { height:8vh; object-fit:contain; }
         .title-text { font-size:3.5vh; font-weight:900; color:var(--daka-yellow); margin:0; }
         .clock-time { font-size:4vh; font-family:monospace; }
         .table-container { flex:1; padding:0 2vw; overflow-y:auto; }
@@ -72,10 +71,7 @@
                 <div id="empty-message" class="empty-state" style="display:none;">Esperando programación de despachos...</div>
             </div>
         `;
-        setInterval(() => {
-            const clockSpan = document.getElementById('clock-time');
-            if (clockSpan) clockSpan.innerText = new Date().toLocaleTimeString();
-        }, 1000);
+        setInterval(() => { const clockSpan = document.getElementById('clock-time'); if (clockSpan) clockSpan.innerText = new Date().toLocaleTimeString(); }, 1000);
         cargarDatosFirebase();
     }
 
