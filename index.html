@@ -462,7 +462,7 @@
         modal.style.display = 'flex';
     }
     function cerrarModalReporte() { document.getElementById('modal-reporte').style.display = 'none'; }
-    function abrirMonitorTV() { window.open('monitor_tv.html', '_blank'); }
+    function abrirMonitorTV() { window.open('monitor_tv.html', '_blank', 'noopener,noreferrer'); }
 
     function mostrarInterfaz(galpon) {
         galponActual = galpon;
@@ -471,7 +471,7 @@
                 <div class="header-left">
                     <div style="height:60px; width:60px; background:var(--accent-blue); border-radius:8px;"></div>
                     <h1>Control Galpón ${galpon}</h1>
-                    <a href="monitor_tv.html" target="_blank" class="btn-proyectar" style="text-decoration:none; display:inline-block; background-color:var(--accent-blue); color:#000; padding:8px 15px; border-radius:4px; font-weight:bold;">📺 Proyectar FIDS al TV</a>
+                    <button class="btn-proyectar" onclick="abrirMonitorTV()" style="background-color:var(--accent-blue); color:#000; border:none; padding:8px 15px; border-radius:4px; font-weight:bold; cursor:pointer;">📺 Proyectar FIDS al TV</button>
                 </div>
                 <div class="clock" id="main-clock">00:00:00</div>
             </div>
