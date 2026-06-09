@@ -2,81 +2,87 @@
 <html lang="es">
 <head>
     <meta charset="UTF-8">
-    <title>YMS Daka - Control de Galpón</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YMS Daka - Tablero de Control de Patio</title>
+    <!-- Firebase SDKs -->
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+    <!-- SheetJS para importar Excel -->
     <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
     <style>
+        /* ===== ESTILOS COMPLETOS (igual que en tu capa3.html original) ===== */
         :root { --bg-dark: #0f172a; --panel-bg: #1e293b; --text-main: #f8fafc; --accent-blue: #38bdf8; --green: #22c55e; --red: #ef4444; --yellow: #eab308; --border-color: #334155; }
-        * { box-sizing: border-box; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg-dark); color: var(--text-main); margin: 0; padding: 10px; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
-        .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #000; border-bottom: 2px solid var(--accent-blue); margin-bottom: 10px; flex-wrap: wrap; gap: 10px; }
+        .header { display: flex; justify-content: space-between; align-items: center; padding: 10px 20px; background: #000; border-bottom: 2px solid var(--accent-blue); margin-bottom: 10px; }
         .header-left { display: flex; align-items: center; gap: 20px; flex-wrap: wrap; }
+        .logo-img { height: 60px; object-fit: contain; }
+        .header h1 { margin: 0; font-size: 1.4em; letter-spacing: 2px; color: var(--accent-blue); text-transform: uppercase; }
+        .btn-proyectar { background-color: var(--accent-blue); color: #000; font-weight: bold; padding: 8px 15px; border: none; border-radius: 4px; cursor: pointer; font-size: 0.9em; transition: all 0.3s; }
+        .btn-proyectar:hover { background-color: #0ea5e9; transform: scale(1.05); }
         .clock { font-size: 1.5em; font-weight: bold; color: var(--yellow); font-family: monospace; }
-        .btn { background-color: var(--accent-blue); color: #000; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; text-decoration: none; display: inline-block; font-size: 0.8rem; }
-        .btn-yellow { background-color: var(--yellow); color: #000; }
         .main-container { display: flex; gap: 15px; flex: 1; overflow: hidden; margin-bottom: 10px; }
         .sidebar { width: 320px; display: flex; flex-direction: column; gap: 15px; }
         .queue-panel, .en-ruta-panel { background: var(--panel-bg); border-radius: 8px; display: flex; flex-direction: column; border: 1px solid var(--border-color); flex: 1; min-height: 0; }
         .queue-header { background: var(--border-color); padding: 10px; font-weight: bold; text-align: center; border-radius: 8px 8px 0 0; }
         .ruta-header { background: #1e3a8a; padding: 10px; font-weight: bold; text-align: center; border-radius: 8px 8px 0 0; }
         .queue-list { padding: 10px; overflow-y: auto; flex: 1; display: flex; flex-direction: column; gap: 10px; }
-        .trk-card { background: #0f172a; border-left: 4px solid var(--yellow); padding: 10px; border-radius: 4px; cursor: pointer; transition: transform 0.2s; font-size: 0.85em; position: relative;}
+        .trk-card { background: #0f172a; border-left: 4px solid var(--yellow); padding: 10px; border-radius: 4px; cursor: pointer; transition: transform 0.2s; font-size: 0.85em; position: relative; }
         .trk-card:hover { transform: translateX(5px); background: #1e293b; border: 1px solid var(--accent-blue); }
         .trk-card.selected { border: 2px solid var(--accent-blue); background: #164e63; }
-        .trk-id { font-weight: bold; color: var(--accent-blue); font-size: 1.1em; margin-bottom: 3px;}
-        .trk-dest { color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px;}
-        .trk-sap { font-size: 0.75em; color: var(--accent-blue); margin-bottom: 5px; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;}
-        .trk-seq { color: var(--yellow); font-size: 0.85em; margin-top: 5px; font-weight: bold;}
-        .estatus-btn { display:inline-block; margin-top:5px; background:rgba(255,255,255,0.05); border:1px solid #475569; padding:4px 8px; border-radius:4px; transition:all 0.2s; cursor:pointer; }
-        .estatus-btn:hover { background:rgba(255,255,255,0.1); }
+        .trk-id { font-weight: bold; color: var(--accent-blue); font-size: 1.1em; margin-bottom: 3px; }
+        .trk-dest { color: #cbd5e1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 2px; }
+        .trk-sap { font-size: 0.75em; color: var(--accent-blue); margin-bottom: 5px; font-family: monospace; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .trk-seq { color: var(--yellow); font-size: 0.85em; margin-top: 5px; font-weight: bold; }
+        .badge-late { position: absolute; top: 5px; right: 5px; background: var(--red); color: white; padding: 2px 5px; font-size: 0.7em; border-radius: 3px; font-weight: bold; display: none; }
+        .estatus-btn { display: inline-block; margin-top: 5px; background: rgba(255,255,255,0.05); border: 1px solid #475569; padding: 4px 8px; border-radius: 4px; transition: all 0.2s; cursor: pointer; }
+        .estatus-btn:hover { background: rgba(255,255,255,0.1); }
         .yard-panel { flex: 1; display: flex; gap: 10px; overflow-y: auto; padding-right: 5px; }
         .galpon-col { flex: 1; background: var(--panel-bg); border-radius: 8px; border: 1px solid var(--border-color); display: flex; flex-direction: column; }
-        .galpon-header { background: #1e293b; color: white; text-align: center; padding: 8px; font-weight: bold; font-size: 1.1em; border-bottom: 2px solid var(--border-color); border-radius: 8px 8px 0 0; letter-spacing: 1px;}
+        .galpon-header { background: #1e293b; color: white; text-align: center; padding: 8px; font-weight: bold; font-size: 1.1em; border-bottom: 2px solid var(--border-color); border-radius: 8px 8px 0 0; letter-spacing: 1px; }
         .doors-container { padding: 8px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
-        .door { background: #000; border: 1px solid var(--border-color); border-radius: 6px; min-height: 130px; display: flex; flex-direction: column; position: relative; overflow: hidden; transition: all 0.3s;}
+        .door { background: #000; border: 1px solid var(--border-color); border-radius: 6px; min-height: 130px; display: flex; flex-direction: column; position: relative; overflow: hidden; transition: all 0.3s; }
         .door-header { background: var(--border-color); padding: 5px 10px; font-weight: bold; font-size: 0.85em; display: flex; justify-content: space-between; }
         .door-content { padding: 8px; flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
-        .empty-text { color: #475569; font-style: italic; cursor: pointer; padding: 10px; width: 100%; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 0.9em;}
+        .empty-text { color: #475569; font-style: italic; cursor: pointer; padding: 10px; width: 100%; height: 100%; box-sizing: border-box; display: flex; align-items: center; justify-content: center; font-size: 0.9em; }
         .empty-text:hover { background: rgba(56, 189, 248, 0.1); color: var(--accent-blue); }
         .active-truck { width: 100%; display: flex; flex-direction: column; gap: 3px; font-size: 0.8em; text-align: left; }
-        .lbl-flota { font-weight: bold; color: var(--accent-blue); font-size: 1.1em;}
+        .lbl-flota { font-weight: bold; color: var(--accent-blue); font-size: 1.1em; }
         .lbl-dest { color: #f8fafc; }
-        .lbl-time { font-size: 0.85em; color: var(--yellow); font-style: italic; font-weight: bold;}
-        .timer-display { font-size: 1.6em; font-weight: bold; text-align: center; margin-top: 5px; font-family: monospace; color: var(--green);}
+        .lbl-time { font-size: 0.85em; color: var(--yellow); font-style: italic; font-weight: bold; }
+        .timer-display { font-size: 1.6em; font-weight: bold; text-align: center; margin-top: 5px; font-family: monospace; color: var(--green); }
         .timer-display.warning { color: var(--yellow); }
         .door.retraso { animation: blinkRed 1.5s infinite; border-color: var(--red); }
         .door.retraso .timer-display { color: var(--red); }
         @keyframes blinkRed { 0% { box-shadow: 0 0 0px var(--red); background-color: #000; } 50% { box-shadow: inset 0 0 15px var(--red); background-color: rgba(239, 68, 68, 0.15); } 100% { box-shadow: 0 0 0px var(--red); background-color: #000; } }
         .door-controls { display: flex; border-top: 1px solid var(--border-color); }
-        .door-btn { flex: 1; background: transparent; border: none; color: white; padding: 6px; cursor: pointer; font-weight: bold; font-size: 0.8em; transition: background 0.2s;}
+        .door-btn { flex: 1; background: transparent; border: none; color: white; padding: 6px; cursor: pointer; font-weight: bold; font-size: 0.8em; transition: background 0.2s; }
         .door-btn:hover { background: var(--border-color); }
         .btn-start { color: white; background-color: rgba(34, 197, 94, 0.2); }
         .pulse-start { animation: pulseGreen 1.5s infinite; border: 1px solid var(--green); }
         @keyframes pulseGreen { 0% { box-shadow: 0 0 0px var(--green); } 50% { box-shadow: 0 0 10px var(--green); background-color: rgba(34, 197, 94, 0.5); } 100% { box-shadow: 0 0 0px var(--green); } }
-        .btn-dispatch { color: var(--accent-blue); border-left: 1px solid var(--border-color);}
+        .btn-dispatch { color: var(--accent-blue); border-left: 1px solid var(--border-color); }
         .btn-dispatch:hover { background: rgba(56, 189, 248, 0.2); }
-        .btn-cancel-anden { color: var(--red); border-left: 1px solid var(--border-color);}
+        .btn-cancel-anden { color: var(--red); border-left: 1px solid var(--border-color); }
         .btn-cancel-anden:hover { background: rgba(239, 68, 68, 0.2); }
         .btn-disabled { opacity: 0.3; pointer-events: none; }
         .kpi-bar { background: #000; border: 1px solid var(--border-color); border-radius: 8px; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px; }
-        .kpi-wrapper { display: flex; gap: 30px; flex-wrap: wrap; }
+        .kpi-wrapper { display: flex; gap: 30px; }
         .kpi-item { display: flex; flex-direction: column; align-items: center; }
-        .kpi-label { font-size: 0.75em; color: #94a3b8; text-transform: uppercase; font-weight: bold; letter-spacing: 1px;}
+        .kpi-label { font-size: 0.75em; color: #94a3b8; text-transform: uppercase; font-weight: bold; letter-spacing: 1px; }
         .kpi-val { font-size: 1.4em; font-weight: bold; color: var(--accent-blue); }
-        .btn-report { background: var(--yellow); color: #000; border: none; padding: 8px 20px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.9em; transition: background 0.3s;}
+        .btn-report { background: var(--yellow); color: #000; border: none; padding: 8px 20px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.9em; transition: background 0.3s; }
         .btn-report:hover { background: #d97706; }
-        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(3px);}
+        .modal-overlay { position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.8); display: none; justify-content: center; align-items: center; z-index: 100; backdrop-filter: blur(3px); }
         .modal-content { background: var(--panel-bg); border: 1px solid var(--border-color); border-radius: 8px; padding: 25px; width: 400px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); }
         .modal-content.large { width: 95%; max-width: 1400px; max-height: 85vh; display: flex; flex-direction: column; }
-        .modal-title { color: var(--red); margin-top: 0; font-size: 1.2em; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;}
+        .modal-title { color: var(--red); margin-top: 0; font-size: 1.2em; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px; }
         .form-group { margin-top: 15px; }
-        .form-group label { display: block; font-size: 0.85em; color: #cbd5e1; margin-bottom: 5px; font-weight: bold;}
-        .form-control { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: #0f172a; color: white; font-family: inherit; font-size: 0.9em; box-sizing: border-box;}
+        .form-group label { display: block; font-size: 0.85em; color: #cbd5e1; margin-bottom: 5px; font-weight: bold; }
+        .form-control { width: 100%; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); background: #0f172a; color: white; font-family: inherit; font-size: 0.9em; box-sizing: border-box; }
         .modal-actions { margin-top: 20px; display: flex; justify-content: flex-end; gap: 10px; }
         .btn-save { background: var(--red); color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; }
-        .btn-cancel { background: #64748b; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.3s;}
+        .btn-cancel { background: #64748b; color: white; border: none; padding: 8px 15px; border-radius: 4px; cursor: pointer; font-weight: bold; transition: background 0.3s; }
         .btn-cancel:hover { background: #475569; }
         .login-container { display: flex; justify-content: center; align-items: center; height: 100vh; background: var(--bg-dark); }
         .login-box { background: var(--panel-bg); padding: 30px; border-radius: 8px; width: 320px; text-align: center; border: 1px solid var(--border-color); }
@@ -92,12 +98,14 @@
         .tag-late { color: var(--red); font-weight: bold; }
         .file-input { display: none; }
         .import-buttons { display: flex; gap: 8px; margin-left: 10px; }
+        .btn { background-color: var(--accent-blue); color: #000; border: none; padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer; font-size: 0.8rem; }
+        .btn-yellow { background-color: var(--yellow); color: #000; }
     </style>
 </head>
 <body>
 <div id="app"></div>
 <script>
-    // Configuración Firebase
+    // ---------- CONFIGURACIÓN FIREBASE ----------
     const firebaseConfig = {
         apiKey: "AIzaSyDUUGll9Sjhw142PBc1KhShXSUUN59iI2Y",
         authDomain: "simulador-7af44.firebaseapp.com",
@@ -111,7 +119,7 @@
     const database = firebase.database();
     const auth = firebase.auth();
 
-    // Mapeo de correos a galpones
+    // ---------- MAPEO DE CORREOS A GALPONES ----------
     const emailToGalpon = {
         "galpon1@daka.com": 1,
         "galpon2@daka.com": 2,
@@ -121,224 +129,632 @@
         "monitor@daka.com": "monitor"
     };
 
-    let camionesEnEspera = [], camionesEnAnden = [], camionesEnRuta = [], historial = [];
-    let camionSeleccionado = null, galponActual = null;
-    let timers = {};
+    // ---------- VARIABLES GLOBALES ----------
+    let camionesEnEspera = [];      // Cola (patio)
+    let camionesEnAnden = [];       // Vehículos en andenes (estructura plana)
+    let camionesEnRuta = [];        // Vehículos en ruta
+    let historialOperacion = [];    // Historial de despachos completados
+    let camionSeleccionado = null;
+    let timerIntervals = {};         // Para los cronómetros de carga
+    let idleIntervals = {};          // Para el timer de inactividad en andén
+    let dbFlota = [];                // Datos maestros de flota (para tiempos de carga)
+    let galponActual = null;         // Galpón del usuario logueado (1..4)
 
-    function escapeHtml(str) { return str?.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])) || ''; }
-    function formatTime(iso) { return iso ? new Date(iso).toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit' }) : '--:--'; }
-    function formatDate(iso) { return iso ? new Date(iso).toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit' }) : '--/--'; }
+    // Variables para RCA
+    let rcaPendingAction = null;
+    let rcaCamionContext = null;
 
-    // Renderizado de cola, rutas, andenes (igual que antes, pero lo resumo por brevedad)
+    // ---------- FUNCIONES AUXILIARES ----------
+    function escapeHtml(str) { if (!str) return ''; return str.replace(/[&<>]/g, m => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;' }[m])); }
+    function formatoDiaHora(isoString) { if (!isoString) return '--:--'; let d = new Date(isoString); let dia = d.toLocaleDateString('es-VE', { weekday: 'short' }).toUpperCase(); let hora = d.toLocaleTimeString('es-VE', { hour: '2-digit', minute: '2-digit', hour12: true }); return `${dia} ${hora}`; }
+    function formatoFechaCorta(isoString) { if (!isoString) return '--/--/----'; let d = new Date(isoString); return d.toLocaleDateString('es-VE', { day: '2-digit', month: '2-digit', year: 'numeric' }); }
+    function parseTiempoAnden(valor) { if (!valor) return 60; let str = String(valor).toLowerCase().trim(); if (str.includes('hora')) { let match = str.match(/(\d+(?:\.\d+)?)/); if (match) return Math.round(parseFloat(match[1]) * 60); } let match = str.match(/(\d+)/); return match ? parseInt(match[1]) : 60; }
+
+    // Guardar estado en localStorage como respaldo (anti-F5 local, aunque ya usamos Firebase como fuente)
+    function guardarEstadoLocal() {
+        localStorage.setItem('yms_monitor_data', JSON.stringify(camionesEnEspera));
+        localStorage.setItem('yms_en_anden', JSON.stringify(camionesEnAnden));
+        localStorage.setItem('yms_en_ruta', JSON.stringify(camionesEnRuta));
+        localStorage.setItem('yms_historial_patio', JSON.stringify(historialOperacion));
+    }
+
+    // Sincronizar con Firebase (subir cola, andenes, ruta, historial)
+    async function syncQueueToFirebase() { await database.ref('patio/cola').set(camionesEnEspera).catch(e => console.error); }
+    async function syncAndenesToFirebase() {
+        // Firebase espera estructura anidada: patio/andenes/G1/P1, etc.
+        const obj = {};
+        camionesEnAnden.forEach(cam => {
+            if (cam.puertaAsignada) {
+                const [g, p] = cam.puertaAsignada.split('-');
+                if (!obj[g]) obj[g] = {};
+                obj[g][p] = cam;
+            }
+        });
+        await database.ref('patio/andenes').set(obj).catch(e => console.error);
+    }
+    async function syncRutaToFirebase() { await database.ref('patio/enRuta').set(camionesEnRuta).catch(e => console.error); }
+    async function syncHistorialToFirebase() { await database.ref('patio/historial').set(historialOperacion).catch(e => console.error); }
+
+    // Función global para guardar todo (local + firebase)
+    async function guardarTodo() {
+        guardarEstadoLocal();
+        await syncQueueToFirebase();
+        await syncAndenesToFirebase();
+        await syncRutaToFirebase();
+        await syncHistorialToFirebase();
+        actualizarKPIs();
+    }
+
+    // ---------- CARGA DE DATOS DESDE FIREBASE ----------
+    async function cargarDatosDesdeFirebase() {
+        try {
+            const snapCola = await database.ref('patio/cola').once('value');
+            camionesEnEspera = snapCola.val() || [];
+            const snapAndenes = await database.ref('patio/andenes').once('value');
+            const obj = snapAndenes.val() || {};
+            camionesEnAnden = [];
+            for (let g in obj) for (let p in obj[g]) if (obj[g][p]) camionesEnAnden.push(obj[g][p]);
+            const snapRuta = await database.ref('patio/enRuta').once('value');
+            camionesEnRuta = snapRuta.val() || [];
+            const snapHist = await database.ref('patio/historial').once('value');
+            historialOperacion = snapHist.val() || [];
+            guardarEstadoLocal(); // Backup local
+        } catch(e) { console.warn("Error cargando desde Firebase, usando localStorage si existe", e); }
+    }
+
+    // ---------- RENDERIZADO DE COLA (PATIO) ----------
     function renderizarCola() {
-        const cont = document.getElementById('queue-list');
-        if (!cont) return;
-        cont.innerHTML = '';
-        if (camionesEnEspera.length === 0) { cont.innerHTML = '<div style="text-align:center; color:#64748b;">Patio despejado</div>'; return; }
-        camionesEnEspera.forEach((c, i) => {
+        const list = document.getElementById('queue-list');
+        if (!list) return;
+        list.innerHTML = '';
+        if (camionesEnEspera.length === 0) {
+            list.innerHTML = '<div style="text-align:center; color:#64748b; margin-top:20px;">Patio despejado.</div>';
+            return;
+        }
+        camionesEnEspera.sort((a, b) => new Date(a.llegadaProgramada) - new Date(b.llegadaProgramada));
+        const ahora = new Date();
+        camionesEnEspera.forEach((camion, idx) => {
+            const progDate = new Date(camion.llegadaProgramada);
+            const isLate = ahora > progDate;
             const div = document.createElement('div');
             div.className = 'trk-card';
-            div.innerHTML = `<div class="trk-id">${escapeHtml(c.flota)}</div>
-                            <div>${escapeHtml(c.destino)}</div>
-                            <div class="trk-sap">📦 ${escapeHtml(c.documentos || 'S/N')}</div>
-                            <div class="trk-seq">📍 ${escapeHtml(c.secuencia)}</div>
-                            <div>⏰ ${formatTime(c.llegadaProgramada)}</div>
-                            <button class="estatus-btn" onclick="abrirModalEstatus(${i}, event)">⚙️ Estatus</button>`;
-            div.onclick = (e) => { if (e.target.tagName !== 'BUTTON') seleccionarCamion(i, div); };
-            cont.appendChild(div);
+            if (isLate) div.style.borderLeftColor = 'var(--red)';
+            let estatusColor = camion.estatusLogistico === 'DISPONIBLE EN PATIO' ? 'var(--green)' : 'var(--yellow)';
+            let actionEstatus = `<div class="estatus-btn" style="color:${estatusColor}; cursor:pointer;" onclick="abrirModalEstatus(${idx}, event)">⚙️ Estatus: ${camion.estatusLogistico || 'DISPONIBLE EN PATIO'}</div>`;
+            if (camion.bloqueadoSLA) {
+                div.style.borderLeftColor = 'var(--red)';
+                actionEstatus = `<div class="estatus-btn" style="color:var(--red); font-weight:bold; cursor:pointer; background:rgba(239,68,68,0.2); animation: blinkRed 1.5s infinite;" onclick="abrirRCAAlistamiento(${idx}, event)">⚠️ SLA EXCEDIDO - CLIC PARA RCA</div>`;
+            }
+            div.innerHTML = `
+                <div class="badge-late" style="display: ${isLate ? 'block' : 'none'}">RETRASADO</div>
+                <div class="trk-id">${escapeHtml(camion.flota)}</div>
+                <div class="trk-dest">Destino: ${escapeHtml(camion.destino)}</div>
+                <div class="trk-sap">📦 SAP: ${escapeHtml(camion.documentos || 'S/N')}</div>
+                <div class="trk-seq">📍 ${escapeHtml(camion.secuencia)}</div>
+                <div style="margin-top:5px; font-size:0.8em; color:${isLate ? 'var(--red)' : 'var(--accent-blue)'}; font-weight:bold;">Atención Pautada: ${formatoDiaHora(camion.llegadaProgramada)}</div>
+                <div style="margin-top:8px; font-size:0.85em; color:#94a3b8;"><b>Y. Jockey:</b> ${escapeHtml(camion.yardJockey || 'Sin Asignar')}<br>${actionEstatus}</div>
+            `;
+            div.onclick = () => seleccionarCamion(idx, div);
+            list.appendChild(div);
         });
     }
 
-    function seleccionarCamion(i, el) {
-        document.querySelectorAll('.trk-card').forEach(c => c.classList.remove('selected'));
-        el.classList.add('selected');
-        camionSeleccionado = camionesEnEspera[i];
+    function seleccionarCamion(idx, element) {
+        document.querySelectorAll('.trk-card').forEach(el => el.classList.remove('selected'));
+        element.classList.add('selected');
+        camionSeleccionado = camionesEnEspera[idx];
+        camionSeleccionado.queueIndex = idx;
     }
 
     function renderizarRuta() {
-        const cont = document.getElementById('ruta-list');
-        if (!cont) return;
-        cont.innerHTML = '';
-        if (camionesEnRuta.length === 0) { cont.innerHTML = '<div style="text-align:center; color:#64748b;">Sin unidades</div>'; return; }
-        camionesEnRuta.forEach((c, i) => {
+        const list = document.getElementById('ruta-list');
+        if (!list) return;
+        list.innerHTML = '';
+        if (camionesEnRuta.length === 0) {
+            list.innerHTML = '<div style="text-align:center; color:#64748b; margin-top:20px;">Sin unidades en tránsito.</div>';
+            return;
+        }
+        camionesEnRuta.forEach((camion, idx) => {
             const div = document.createElement('div');
             div.className = 'trk-card';
             div.style.borderLeftColor = 'var(--accent-blue)';
-            div.innerHTML = `<div class="trk-id">${escapeHtml(c.flota)}</div>
-                            <div>${escapeHtml(c.destino)}</div>
-                            <div>🚀 ${formatTime(c.salidaReal)}</div>
-                            <button onclick="registrarRetorno(${i})">🔙 Retorno</button>`;
-            cont.appendChild(div);
+            div.innerHTML = `
+                <div class="trk-id">${escapeHtml(camion.flota)}</div>
+                <div class="trk-dest">${escapeHtml(camion.destino)}</div>
+                <div style="font-size:0.8em; color:#94a3b8; margin-bottom:8px;">Salida Real: <b>${formatoDiaHora(camion.salidaReal)}</b></div>
+                <button style="width:100%; padding:6px; background:var(--accent-blue); color:#000; border:none; font-weight:bold; border-radius:3px; cursor:pointer;" onclick="registrarRetorno(${idx})">🔙 REGISTRAR RETORNO</button>
+            `;
+            list.appendChild(div);
         });
     }
 
-    function renderizarGalpones() {
+    // ---------- CONSTRUCCIÓN DE ANDENES (SOLO GALPÓN DEL OPERADOR) ----------
+    function construirGalpones() {
         const yard = document.getElementById('yard-panel');
-        if (!yard) return;
         yard.innerHTML = '';
         const col = document.createElement('div');
         col.className = 'galpon-col';
-        col.innerHTML = `<div class="galpon-header">GALPÓN ${galponActual}</div><div class="doors-container" id="doors-${galponActual}"></div>`;
-        yard.appendChild(col);
-        const doorsDiv = document.getElementById(`doors-${galponActual}`);
+        col.innerHTML = `<div class="galpon-header">GALPÓN ${galponActual}</div>`;
+        const doorsContainer = document.createElement('div');
+        doorsContainer.className = 'doors-container';
         for (let p = 1; p <= 4; p++) {
             const doorId = `G${galponActual}-P${p}`;
             const door = document.createElement('div');
             door.className = 'door';
             door.id = doorId;
-            door.innerHTML = `<div class="door-header"><span>🚪 ${doorId}</span><span class="status">Libre</span></div>
-                              <div class="door-content" id="content-${doorId}">
-                                  <div class="empty-text" onclick="verificarIngresoAnden('${doorId}')">📌 Clic para llamar</div>
-                              </div>`;
-            doorsDiv.appendChild(door);
+            door.innerHTML = `
+                <div class="door-header"><span>🚪 ${doorId}</span><span class="status-indicator">Libre</span></div>
+                <div class="door-content" id="content-${doorId}">
+                    <div class="empty-text" onclick="verificarIngresoAnden('${doorId}')">Clic para llamar a Andén</div>
+                </div>
+            `;
+            doorsContainer.appendChild(door);
         }
-        camionesEnAnden.forEach(cam => { if (cam.puertaAsignada?.startsWith(`G${galponActual}`)) restaurarAndenDOM(cam); });
+        col.appendChild(doorsContainer);
+        yard.appendChild(col);
+        // Restaurar camiones activos en este galpón
+        camionesEnAnden.forEach(camion => {
+            if (camion.puertaAsignada && camion.puertaAsignada.startsWith(`G${galponActual}`)) {
+                restaurarAndenDOM(camion);
+            }
+        });
     }
 
+    // ---------- RESTAURACIÓN DE ANDÉN (cronómetros y controles) ----------
     function restaurarAndenDOM(camion) {
         const doorId = camion.puertaAsignada;
         const doorDiv = document.getElementById(doorId);
         if (!doorDiv) return;
         const contentDiv = document.getElementById(`content-${doorId}`);
-        const cargando = camion.inicioCargaReal != null;
-        contentDiv.innerHTML = `<div class="active-truck">
-            <div class="lbl-flota">${escapeHtml(camion.flota)}</div>
-            <div>${escapeHtml(camion.destino)}</div>
-            <div>YJ: ${escapeHtml(camion.yardJockey)}</div>
-            <div>Límite: ${camion.tiempoProgCarga} min</div>
-            <div class="timer-display" id="timer-${doorId}">00:00</div>
-        </div>`;
-        let controls = doorDiv.querySelector('.door-controls');
-        if (controls) controls.remove();
-        controls = document.createElement('div');
+        const isCargando = camion.inicioCargaReal != null;
+        contentDiv.innerHTML = `
+            <div class="active-truck">
+                <div class="lbl-flota">${escapeHtml(camion.flota)}</div>
+                <div class="lbl-dest">${escapeHtml(camion.destino)}</div>
+                <div style="font-size:0.75em; color:var(--text-main);">YJ: <b>${escapeHtml(camion.yardJockey)}</b></div>
+                <div class="lbl-time">Prog: ${formatoDiaHora(camion.llegadaProgramada)}</div>
+                <div class="lbl-time" style="color:var(--accent-blue);">Límite Carga: ${camion.tiempoProgCarga} min</div>
+                <div class="timer-display" id="timer-${doorId}">00:00</div>
+            </div>
+        `;
+        // Eliminar controles previos
+        const oldControls = doorDiv.querySelector('.door-controls');
+        if (oldControls) oldControls.remove();
+        const controls = document.createElement('div');
         controls.className = 'door-controls';
-        controls.innerHTML = `<button class="door-btn btn-start" id="start-${doorId}" ${cargando ? 'disabled' : ''} onclick="iniciarCarga('${doorId}')">${cargando ? '⏳ Cargando' : '▶ Iniciar'}</button>
-                              <button class="door-btn btn-dispatch" id="dispatch-${doorId}" onclick="verificarDespacho('${doorId}')">✔ Despachar</button>
-                              <button class="door-btn btn-cancel-anden" id="cancel-${doorId}" onclick="intentarReversarAnden('${doorId}')" ${cargando ? 'style="display:none"' : ''}>✖ Reversar</button>`;
+        controls.id = `ctrl-${doorId}`;
+        controls.innerHTML = `
+            <button class="door-btn btn-start ${isCargando ? '' : 'pulse-start'}" id="btn-start-${doorId}" onclick="iniciarCarga('${doorId}')" ${isCargando ? 'disabled style="color:#64748b;"' : ''}>${isCargando ? '⏳ EN PROCESO' : '▶ INICIAR CARGA'}</button>
+            <button class="door-btn btn-dispatch ${isCargando ? '' : 'btn-disabled'}" id="btn-dispatch-${doorId}" onclick="verificarDespacho('${doorId}')">✔️ DESPACHAR</button>
+            <button class="door-btn btn-cancel-anden" id="btn-cancel-${doorId}" onclick="intentarReversarAnden('${doorId}')" style="display: ${isCargando ? 'none' : 'block'};">✖ REVERSAR</button>
+        `;
         doorDiv.appendChild(controls);
-        doorDiv.querySelector('.status').innerText = cargando ? 'CARGANDO' : 'ASIGNADO';
-        doorDiv.querySelector('.status').style.color = cargando ? 'var(--yellow)' : 'var(--accent-blue)';
-        if (cargando) {
-            if (timers[doorId]) clearInterval(timers[doorId]);
-            timers[doorId] = setInterval(() => {
-                const seg = Math.floor((Date.now() - camion.inicioCargaReal) / 1000);
-                const min = Math.floor(seg / 60);
-                const sec = seg % 60;
-                const td = document.getElementById(`timer-${doorId}`);
-                if (td) td.innerText = `${min.toString().padStart(2,'0')}:${sec.toString().padStart(2,'0')}`;
-                if (min >= camion.tiempoProgCarga) doorDiv.classList.add('retraso');
+        doorDiv.querySelector('.status-indicator').innerText = isCargando ? 'CARGANDO' : 'ASIGNADO';
+        doorDiv.querySelector('.status-indicator').style.color = isCargando ? 'var(--yellow)' : 'var(--accent-blue)';
+        if (isCargando) {
+            if (timerIntervals[doorId]) clearInterval(timerIntervals[doorId]);
+            timerIntervals[doorId] = setInterval(() => {
+                const elapsedSeconds = Math.floor((Date.now() - camion.inicioCargaReal) / 1000);
+                const minutes = Math.floor(elapsedSeconds / 60);
+                const seconds = elapsedSeconds % 60;
+                const timerDisplay = document.getElementById(`timer-${doorId}`);
+                if (timerDisplay) {
+                    timerDisplay.innerText = `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+                    if (minutes >= camion.tiempoProgCarga) {
+                        doorDiv.classList.add('retraso');
+                        doorDiv.querySelector('.status-indicator').innerText = '⛔ RETRASO';
+                        doorDiv.querySelector('.status-indicator').style.color = 'var(--red)';
+                    } else if (minutes >= camion.tiempoProgCarga * 0.8) {
+                        timerDisplay.classList.add('warning');
+                    }
+                }
             }, 1000);
+        } else {
+            if (idleIntervals[doorId]) clearInterval(idleIntervals[doorId]);
+            idleIntervals[doorId] = setInterval(() => {
+                const minsIdle = Math.floor((Date.now() - camion.tiempoLlegadaAndenReal) / 60000);
+                if (minsIdle >= 15 && !camion.idleJustificado) {
+                    clearInterval(idleIntervals[doorId]);
+                    doorDiv.classList.add('retraso');
+                    abrirRCA(camion, 'Demora del Yard Jockey al Estacionar (> 15 min)', () => {
+                        camion.idleJustificado = true;
+                        doorDiv.classList.remove('retraso');
+                        guardarTodo();
+                    });
+                }
+            }, 60000);
         }
     }
 
-    async function verificarIngresoAnden(doorId) {
-        if (!camionSeleccionado) return alert("Selecciona un vehículo de la cola.");
-        const camion = { ...camionSeleccionado };
-        camion.puertaAsignada = doorId;
-        camion.tiempoLlegadaAndenReal = Date.now();
-        camion.estado = `EN ANDÉN (${doorId})`;
-        const idx = camionesEnEspera.findIndex(c => c.idViaje === camion.idViaje);
-        if (idx !== -1) camionesEnEspera.splice(idx, 1);
-        await database.ref('patio/cola').set(camionesEnEspera);
-        const [g, p] = doorId.split('-');
-        await database.ref(`patio/andenes/${g}/${p}`).set(camion);
+    // ---------- LÓGICA DE INGRESO A ANDÉN ----------
+    function verificarIngresoAnden(doorId) {
+        if (!camionSeleccionado) return alert("Selecciona un vehículo de la fila.");
+        if (camionSeleccionado.bloqueadoSLA) {
+            return alert("⛔ ACCIÓN DENEGADA: El vehículo superó el tiempo máximo de mantenimiento. Haga clic en la alerta roja para registrar el RCA y liberarlo.");
+        }
+        if (camionSeleccionado.estatusLogistico !== 'DISPONIBLE EN PATIO') {
+            return alert(`⛔ ACCIÓN DENEGADA: El vehículo se encuentra en "${camionSeleccionado.estatusLogistico}". Debe finalizar esa tarea primero.`);
+        }
+        const galponDestinoPuerta = doorId.split('-')[0];
+        const galponEsperadoSecuencia = camionSeleccionado.secuencia.split('➔')[0].trim();
+        const numPuerta = galponDestinoPuerta.replace(/\D/g, '');
+        const numSecuencia = galponEsperadoSecuencia.replace(/\D/g, '');
+        if (numSecuencia && numPuerta !== numSecuencia) {
+            return alert(`⛔ ERROR POKA-YOKE\n\nEl vehículo debe ir al Galpón ${numSecuencia} primero.`);
+        }
+        let isFirstInLine = true;
+        for (let i = 0; i < camionesEnEspera.length; i++) {
+            if (new Date(camionesEnEspera[i].llegadaProgramada) < new Date(camionSeleccionado.llegadaProgramada)) {
+                isFirstInLine = false;
+                break;
+            }
+        }
+        if (!isFirstInLine && !camionSeleccionado.saltoPautaJustificado) {
+            alert("⛔ POKA-YOKE: ORDEN DE PAUTA\nEstás intentando ingresar un vehículo fuera de su orden cronológico. Debes justificar esta incidencia.");
+            abrirRCA(camionSeleccionado, 'Alteración de Secuencia (Salto de Pauta)', () => {
+                camionSeleccionado.saltoPautaJustificado = true;
+                guardarTodo();
+                verificarIngresoAnden(doorId);
+            });
+            return;
+        }
+        const ahora = new Date();
+        const progDate = new Date(camionSeleccionado.llegadaProgramada);
+        camionSeleccionado.llegadaReal = ahora.toISOString();
+        const difMinutos = Math.floor((ahora - progDate) / 60000);
+        if (difMinutos > 5 && !camionSeleccionado.retrasoLlegadaJustificado) {
+            abrirRCA(camionSeleccionado, 'Retraso de Presentación en Andén', () => {
+                camionSeleccionado.retrasoLlegadaJustificado = true;
+                guardarTodo();
+                procesarIngresoAnden(doorId);
+            });
+        } else {
+            procesarIngresoAnden(doorId);
+        }
+    }
+
+    async function procesarIngresoAnden(doorId) {
+        let tiempoMaximoPermitido = 60;
+        if (dbFlota && dbFlota.length) {
+            const vehiculoMaestro = dbFlota.find(v => camionSeleccionado.flota.includes(v['Placa']));
+            if (vehiculoMaestro && vehiculoMaestro['Tiempo de Carga de Mercancía en Andén']) {
+                tiempoMaximoPermitido = parseTiempoAnden(vehiculoMaestro['Tiempo de Carga de Mercancía en Andén']);
+            }
+        }
+        camionSeleccionado.tiempoProgCarga = tiempoMaximoPermitido;
+        camionSeleccionado.tiempoLlegadaAndenReal = Date.now();
+        camionSeleccionado.inicioCargaReal = null;
+        camionSeleccionado.puertaExacta = doorId;
+        camionSeleccionado.estado = `EN ANDÉN (${doorId})`;
+        camionSeleccionado.puertaAsignada = doorId;
+        camionesEnAnden.push(camionSeleccionado);
+        camionesEnEspera.splice(camionSeleccionado.queueIndex, 1);
+        const camionParaDOM = camionSeleccionado;
         camionSeleccionado = null;
+        restaurarAndenDOM(camionParaDOM);
         renderizarCola();
+        await guardarTodo();
     }
 
+    // ---------- INICIAR CARGA ----------
     function iniciarCarga(doorId) {
-        const [g, p] = doorId.split('-');
-        database.ref(`patio/andenes/${g}/${p}`).once('value', snap => {
-            const c = snap.val();
-            if (!c || c.inicioCargaReal) return alert("Ya inició carga");
-            c.inicioCargaReal = Date.now();
-            c.estado = 'CARGANDO';
-            database.ref(`patio/andenes/${g}/${p}`).set(c);
-            restaurarAndenDOM(c);
-        });
+        clearInterval(idleIntervals[doorId]);
+        const camion = camionesEnAnden.find(c => c.puertaAsignada === doorId);
+        if (!camion) return;
+        camion.inicioCargaReal = Date.now();
+        const doorDiv = document.getElementById(doorId);
+        const btnStart = document.getElementById(`btn-start-${doorId}`);
+        const btnDispatch = document.getElementById(`btn-dispatch-${doorId}`);
+        const btnReversar = document.getElementById(`btn-cancel-${doorId}`);
+        if (doorDiv) doorDiv.querySelector('.status-indicator').innerText = 'CARGANDO';
+        if (btnStart) { btnStart.classList.remove('pulse-start'); btnStart.innerText = "⏳ EN PROCESO"; btnStart.disabled = true; btnStart.style.color = "#64748b"; }
+        if (btnDispatch) btnDispatch.classList.remove('btn-disabled');
+        if (btnReversar) btnReversar.style.display = 'none';
+        camion.estado = `CARGANDO (${doorId})`;
+        guardarTodo();
+        restaurarAndenDOM(camion); // Reinicia el cronómetro
     }
 
+    // ---------- DESPACHO ----------
     function verificarDespacho(doorId) {
-        const [g, p] = doorId.split('-');
-        database.ref(`patio/andenes/${g}/${p}`).once('value', snap => {
-            const c = snap.val();
-            if (!c || !c.inicioCargaReal) return alert("Inicie la carga primero");
-            c.tiempoRealCarga = Math.floor((Date.now() - c.inicioCargaReal) / 60000);
-            c.salidaReal = new Date().toISOString();
-            camionesEnRuta.push(c);
-            database.ref('patio/enRuta').set(camionesEnRuta);
-            database.ref(`patio/andenes/${g}/${p}`).remove();
-            if (timers[doorId]) clearInterval(timers[doorId]);
-            alert(`✅ ${c.flota} despachado`);
-        });
+        const camion = camionesEnAnden.find(c => c.puertaAsignada === doorId);
+        if (!camion || !camion.inicioCargaReal) return alert("Debe iniciar la carga primero.");
+        const finCargaReal = Date.now();
+        const minutosCarga = Math.floor((finCargaReal - camion.inicioCargaReal) / 60000);
+        camion.tiempoRealCarga = minutosCarga;
+        if (minutosCarga > camion.tiempoProgCarga) {
+            abrirRCA(camion, 'Retraso Operativo en Andén (Exceso de Tiempo de Carga)', () => procesarDespacho(doorId, camion));
+        } else {
+            procesarDespacho(doorId, camion);
+        }
     }
 
-    function registrarRetorno(idx) {
-        const c = camionesEnRuta[idx];
-        if (!confirm(`¿Retorno de ${c.flota}?`)) return;
-        c.retornoReal = new Date().toISOString();
-        c.duracionViaje = ((new Date(c.retornoReal) - new Date(c.salidaReal)) / 3600000).toFixed(1);
-        historial.push(c);
-        database.ref('patio/historial').set(historial);
-        camionesEnRuta.splice(idx, 1);
-        database.ref('patio/enRuta').set(camionesEnRuta);
-        alert(`✅ Retorno registrado. Viaje: ${c.duracionViaje} hrs`);
+    async function procesarDespacho(doorId, camion) {
+        clearInterval(timerIntervals[doorId]);
+        const doorDiv = document.getElementById(doorId);
+        if (doorDiv) doorDiv.classList.remove('retraso');
+        camionesEnAnden = camionesEnAnden.filter(c => c.flota !== camion.flota);
+        const secuenciaActual = camion.secuencia.split('➔').map(s => s.trim());
+        camion.galponEjecutado = secuenciaActual[0];
+        if (secuenciaActual.length > 1) {
+            const registro = { ...camion, fechaEjecucion: new Date().toISOString() };
+            historialOperacion.push(registro);
+            secuenciaActual.shift();
+            camion.secuencia = secuenciaActual.join(' ➔ ');
+            camion.estado = 'DISPONIBLE EN PATIO';
+            camion.estatusLogistico = 'DISPONIBLE EN PATIO';
+            camion.llegadaProgramada = new Date(Date.now() + 15 * 60000).toISOString();
+            camion.incidencias = [];
+            camion.saltoPautaJustificado = false;
+            camion.retrasoLlegadaJustificado = false;
+            camion.idleJustificado = false;
+            camion.inicioCargaReal = null;
+            camion.puertaExacta = null;
+            camionesEnEspera.push(camion);
+            alert(`✅ Carga parcial completada en ${camion.tiempoRealCarga} min.\nEl vehículo avanza al ${secuenciaActual[0]}.`);
+        } else {
+            camion.salidaReal = new Date().toISOString();
+            camionesEnRuta.push(camion);
+            alert(`✅ ¡Carga finalizada en ${camion.tiempoRealCarga} min!\nEl vehículo ${camion.flota} ha cruzado el portón del CDD y está EN RUTA.`);
+        }
+        const ctrlDiv = document.getElementById(`ctrl-${doorId}`);
+        if (ctrlDiv) ctrlDiv.remove();
+        if (doorDiv) {
+            doorDiv.querySelector('.status-indicator').innerText = 'Libre';
+            document.getElementById(`content-${doorId}`).innerHTML = `<div class="empty-text" onclick="verificarIngresoAnden('${doorId}')">Clic para llamar a Andén</div>`;
+        }
+        renderizarCola();
+        renderizarRuta();
+        await guardarTodo();
     }
 
+    // ---------- REVERSAR ANDÉN ----------
     function intentarReversarAnden(doorId) {
-        const [g, p] = doorId.split('-');
-        database.ref(`patio/andenes/${g}/${p}`).once('value', snap => {
-            const c = snap.val();
-            if (!c) return;
-            if (c.inicioCargaReal) return alert("No se puede reversar, ya inició carga");
-            database.ref(`patio/andenes/${g}/${p}`).remove();
-            camionesEnEspera.unshift(c);
-            database.ref('patio/cola').set(camionesEnEspera);
-            alert(`✅ ${c.flota} regresado a cola`);
+        const camion = camionesEnAnden.find(c => c.puertaAsignada === doorId);
+        if (!camion) return;
+        if (camion.inicioCargaReal) return alert("⛔ Acción Denegada: No se puede cancelar el ingreso porque la carga ya ha iniciado.");
+        abrirRCA(camion, 'Reverso de Asignación a Andén (Cancelado)', () => ejecutarReversoAnden(doorId, camion));
+    }
+
+    async function ejecutarReversoAnden(doorId, camion) {
+        clearInterval(idleIntervals[doorId]);
+        camionesEnAnden = camionesEnAnden.filter(c => c.flota !== camion.flota);
+        const registroReverso = { ...camion, galponEjecutado: doorId + ' (REVERSADO)', fechaEjecucion: new Date().toISOString(), tiempoProgCarga: 0, tiempoRealCarga: 0, isReverso: true };
+        historialOperacion.push(registroReverso);
+        camion.estado = 'DISPONIBLE EN PATIO';
+        camion.estatusLogistico = 'DISPONIBLE EN PATIO';
+        camion.puertaAsignada = null;
+        camion.puertaExacta = null;
+        camion.saltoPautaJustificado = false;
+        camion.idleJustificado = false;
+        camion.inicioCargaReal = null;
+        camionesEnEspera.push(camion);
+        const doorDiv = document.getElementById(doorId);
+        const ctrlDiv = document.getElementById(`ctrl-${doorId}`);
+        if (ctrlDiv) ctrlDiv.remove();
+        if (doorDiv) {
+            doorDiv.querySelector('.status-indicator').innerText = 'Libre';
+            document.getElementById(`content-${doorId}`).innerHTML = `<div class="empty-text" onclick="verificarIngresoAnden('${doorId}')">Clic para llamar a Andén</div>`;
+        }
+        renderizarCola();
+        await guardarTodo();
+        alert(`✅ Reverso Exitoso y Auditado.\nEl vehículo ${camion.flota} ha regresado a la cola del patio.`);
+    }
+
+    // ---------- REGISTRO DE RETORNO ----------
+    async function registrarRetorno(index) {
+        const camion = camionesEnRuta[index];
+        if (confirm(`¿Confirmar que el vehículo ${camion.flota} ha regresado al CDD de su ruta a ${camion.destino}?`)) {
+            camion.retornoReal = new Date().toISOString();
+            const diffMs = new Date(camion.retornoReal) - new Date(camion.salidaReal);
+            camion.duracionViajeHoras = (diffMs / 3600000).toFixed(1);
+            camionesEnRuta.splice(index, 1);
+            camion.fechaEjecucion = camion.retornoReal;
+            historialOperacion.push(camion);
+            await guardarTodo();
+            renderizarRuta();
+            actualizarKPIs();
+            alert(`✅ Cierre de Ciclo Exitoso.\nEl vehículo completó el viaje en ${camion.duracionViajeHoras} horas y la data fue exportada a auditoría.`);
+        }
+    }
+
+    // ---------- MODAL ESTATUS (SLA) ----------
+    function abrirModalEstatus(idx, event) {
+        event.stopPropagation();
+        const camion = camionesEnEspera[idx];
+        document.getElementById('modal-estatus-placa').innerText = camion.flota;
+        document.getElementById('sel-estatus').value = camion.estatusLogistico || 'DISPONIBLE EN PATIO';
+        document.getElementById('sel-jockey').value = camion.yardJockey || 'Sin Asignar';
+        document.getElementById('modal-estatus').setAttribute('data-idx', idx);
+        document.getElementById('modal-estatus').style.display = 'flex';
+    }
+    async function guardarEstatus() {
+        const idx = document.getElementById('modal-estatus').getAttribute('data-idx');
+        const camion = camionesEnEspera[idx];
+        const selEstatus = document.getElementById('sel-estatus');
+        const newStatus = selEstatus.value;
+        const sla = selEstatus.options[selEstatus.selectedIndex].getAttribute('data-sla');
+        const jockey = document.getElementById('sel-jockey').value;
+        if (camion.estatusLogistico !== newStatus) {
+            camion.estatusLogistico = newStatus;
+            if (sla) {
+                camion.inicioEstatus = Date.now();
+                camion.slaEstatus = parseInt(sla);
+                camion.bloqueadoSLA = false;
+            } else {
+                camion.inicioEstatus = null;
+                camion.slaEstatus = null;
+                camion.bloqueadoSLA = false;
+            }
+        }
+        camion.yardJockey = jockey;
+        document.getElementById('modal-estatus').style.display = 'none';
+        renderizarCola();
+        await guardarTodo();
+    }
+    function abrirRCAAlistamiento(idx, event) {
+        event.stopPropagation();
+        const camion = camionesEnEspera[idx];
+        abrirRCA(camion, `Exceso de SLA Mantenimiento (${camion.estatusLogistico})`, async () => {
+            camion.bloqueadoSLA = false;
+            camion.inicioEstatus = null;
+            camion.slaEstatus = null;
+            camion.estatusLogistico = 'DISPONIBLE EN PATIO';
+            renderizarCola();
+            await guardarTodo();
         });
     }
 
-    function abrirModalEstatus(idx, ev) { ev.stopPropagation(); alert("Función de estatus disponible (puedes implementarla después)"); }
-    function actualizarKPIs() { 
-        document.getElementById('kpi-total').innerText = historial.length;
-        let inc = 0; historial.forEach(h => { if(h.incidencias) inc += h.incidencias.length; });
-        document.getElementById('kpi-incidencias').innerText = inc;
+    // ---------- RCA ----------
+    function abrirRCA(camion, fase, callback) {
+        rcaCamionContext = camion;
+        rcaPendingAction = callback;
+        document.getElementById('rca-placa').value = camion.flota;
+        document.getElementById('rca-fase').value = fase;
+        document.getElementById('rca-motivo').value = "";
+        document.getElementById('rca-obs').value = "";
+        document.getElementById('modal-rca').style.display = 'flex';
     }
-    function abrirModalReporte() { alert("Reporte en construcción"); }
+    function cancelarRCA() {
+        document.getElementById('modal-rca').style.display = 'none';
+        rcaCamionContext = null;
+        rcaPendingAction = null;
+    }
+    async function guardarRCA() {
+        const motivo = document.getElementById('rca-motivo').value;
+        const obs = document.getElementById('rca-obs').value;
+        if (!motivo) return alert("Debe tipificar obligatoriamente la causa raíz.");
+        if (!rcaCamionContext.incidencias) rcaCamionContext.incidencias = [];
+        rcaCamionContext.incidencias.push(`[${document.getElementById('rca-fase').value}] ${motivo} - ${obs}`);
+        document.getElementById('modal-rca').style.display = 'none';
+        if (rcaPendingAction) await rcaPendingAction();
+        rcaCamionContext = null;
+        rcaPendingAction = null;
+        await guardarTodo();
+    }
 
-    // === NUEVAS FUNCIONES PARA CARGAR PLAN ===
-    function cargarDesdeLocalStorage() {
+    // ---------- KPIs y REPORTES ----------
+    function actualizarKPIs() {
+        if (historialOperacion.length === 0) return;
+        let totalReales = 0, totalTime = 0, lateCount = 0, incCount = 0;
+        historialOperacion.forEach(h => {
+            if (h.incidencias && h.incidencias.length > 0) incCount += h.incidencias.length;
+            if (h.isReverso) return;
+            totalReales++;
+            totalTime += (h.tiempoRealCarga || 0);
+            const minDifLlegada = Math.floor((new Date(h.llegadaReal) - new Date(h.llegadaProgramada)) / 60000);
+            const minCargaProg = h.tiempoProgCarga || 60;
+            const minCargaReal = h.tiempoRealCarga || 0;
+            if (minDifLlegada > 5 || minCargaReal > minCargaProg) lateCount++;
+        });
+        const avg = totalReales > 0 ? Math.round(totalTime / totalReales) : 0;
+        const otif = totalReales > 0 ? Math.round(((totalReales - lateCount) / totalReales) * 100) : 100;
+        document.getElementById('kpi-total').innerText = totalReales;
+        document.getElementById('kpi-avg').innerText = avg + ' min';
+        document.getElementById('kpi-incidencias').innerText = incCount;
+        const otifEl = document.getElementById('kpi-otif');
+        if (otifEl) {
+            otifEl.innerText = otif + '%';
+            otifEl.style.color = otif >= 90 ? 'var(--green)' : (otif >= 75 ? 'var(--yellow)' : 'var(--red)');
+        }
+    }
+
+    function abrirModalReporte() {
+        const tbody = document.getElementById('tb-historico');
+        if (!tbody) return;
+        tbody.innerHTML = '';
+        if (historialOperacion.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="16" style="text-align: center;">No hay despachos finalizados aún. </tr> </tr>';
+        } else {
+            historialOperacion.forEach(h => {
+                let txtLlegada = 'N/A', classLlegada = '', txtCarga = 'N/A', classCarga = '';
+                let minCargaProg = h.tiempoProgCarga || 0, minCargaReal = h.tiempoRealCarga || 0;
+                if (!h.isReverso && h.llegadaReal) {
+                    let dLlegada = Math.floor((new Date(h.llegadaReal) - new Date(h.llegadaProgramada)) / 60000);
+                    classLlegada = dLlegada > 5 ? 'tag-late' : 'tag-ok';
+                    txtLlegada = dLlegada > 0 ? `+${dLlegada} min` : 'A Tiempo';
+                    let dCarga = minCargaReal - minCargaProg;
+                    classCarga = dCarga > 0 ? 'tag-late' : 'tag-ok';
+                    txtCarga = dCarga > 0 ? `+${dCarga} min` : 'OK';
+                }
+                let txtRca = (h.incidencias && h.incidencias.length > 0) ? h.incidencias.join(' | ') : '<span style="color:#64748b;">Sin Incidencias</span>';
+                let puertaTxt = h.puertaExacta || 'N/A';
+                let durViaje = h.duracionViajeHoras ? `${h.duracionViajeHoras} hrs` : 'N/A';
+                let salidaTxt = h.salidaReal ? formatoDiaHora(h.salidaReal) : 'N/A';
+                let retornoTxt = h.retornoReal ? formatoDiaHora(h.retornoReal) : 'N/A';
+                let docsSAP = h.documentos || 'N/A';
+                tbody.innerHTML += `<tr>
+                    <td>${formatoFechaCorta(h.fechaEjecucion)}</td>
+                    <td>${h.idViaje || 'N/A'}</td>
+                    <td><b>${h.flota}</b><br><span style="font-size:0.8em;color:${h.isReverso ? 'var(--red)' : '#94a3b8'};">${h.galponEjecutado}</span><br><span style="font-size:0.8em;color:var(--yellow);">YJ: ${h.yardJockey || 'S/A'}</span></td>
+                    <td>${h.destino || 'N/A'}</td>
+                    <td><span style="font-family:monospace; color:var(--accent-blue);">${docsSAP}</span></td>
+                    <td><b>${puertaTxt}</b></td>
+                    <td>${formatoDiaHora(h.llegadaProgramada)}</td>
+                    <td>${h.llegadaReal ? formatoDiaHora(h.llegadaReal) : 'N/A'}</td>
+                    <td class="${classLlegada}">${txtLlegada}</td>
+                    <td>${minCargaProg} min</td><td>${minCargaReal} min</td>
+                    <td class="${classCarga}">${txtCarga}</td>
+                    <td>${salidaTxt}</td><td>${retornoTxt}</td>
+                    <td style="color:var(--accent-blue);"><b>${durViaje}</b></td>
+                    <td>${txtRca}</td>
+                </tr>`;
+            });
+        }
+        document.getElementById('modal-reporte').style.display = 'flex';
+    }
+    function cerrarModalReporte() { document.getElementById('modal-reporte').style.display = 'none'; }
+    function exportarExcelRCA() {
+        const wb = XLSX.utils.table_to_book(document.getElementById('tabla-historico'), { sheet: "Mineria_Procesos" });
+        XLSX.writeFile(wb, `Auditoria_Patio_${new Date().toISOString().split('T')[0]}.xlsx`);
+    }
+    function limpiarHistorial() {
+        const pin = prompt("🔒 ACCESO RESTRINGIDO\nIngrese el PIN de seguridad (4 dígitos) para borrar la base de datos:");
+        if (pin !== "5566") return alert("❌ PIN Incorrecto. Operación denegada.");
+        if (!confirm("⚠️ ADVERTENCIA FINAL: ¿Estás seguro de eliminar toda la data de pruebas? Esta acción es irreversible.")) return;
+        localStorage.removeItem('yms_historial_patio');
+        localStorage.removeItem('yms_en_anden');
+        localStorage.removeItem('yms_monitor_data');
+        localStorage.removeItem('yms_en_ruta');
+        camionesEnEspera = [];
+        camionesEnAnden = [];
+        camionesEnRuta = [];
+        historialOperacion = [];
+        construirGalpones();
+        renderizarCola();
+        renderizarRuta();
+        actualizarKPIs();
+        cerrarModalReporte();
+        guardarTodo();
+        alert("✅ Base de datos completamente purgada y lista para la operación real.");
+    }
+
+    // ---------- FUNCIONES PARA CARGAR PLAN DESDE LOCALSTORAGE O EXCEL ----------
+    async function cargarDesdeLocalStorage() {
         const data = localStorage.getItem('yms_monitor_data');
-        if (!data) return alert("No hay plan guardado en localStorage. Asegúrate de haber generado y guardado el plan en Capa 2 (Aprobar y Guardar Plan).");
+        if (!data) return alert("No hay plan guardado en localStorage. Asegúrate de haber generado el plan en Capa 2 y presionado 'Aprobar y Guardar Plan'.");
         let viajes;
-        try { viajes = JSON.parse(data); } catch(e) { return alert("Error al leer datos"); }
+        try { viajes = JSON.parse(data); } catch (e) { return alert("Error al leer datos"); }
         if (!Array.isArray(viajes) || viajes.length === 0) return alert("El plan está vacío.");
-        // Subir a Firebase
-        database.ref('patio/cola').set(viajes)
-            .then(() => alert(`✅ Plan cargado correctamente: ${viajes.length} viajes en cola.`))
-            .catch(err => alert("Error al subir a Firebase: " + err.message));
+        camionesEnEspera = viajes;
+        await guardarTodo();
+        renderizarCola();
+        alert(`✅ Plan cargado correctamente: ${viajes.length} viajes en cola.`);
     }
-
     function cargarDesdeExcel(file) {
         const reader = new FileReader();
-        reader.onload = function(e) {
+        reader.onload = async function(e) {
             const data = new Uint8Array(e.target.result);
             const workbook = XLSX.read(data, { type: 'array' });
             const firstSheet = workbook.Sheets[workbook.SheetNames[0]];
             const rows = XLSX.utils.sheet_to_json(firstSheet, { header: 1, defval: "" });
             if (!rows || rows.length < 2) return alert("El Excel no tiene datos.");
-            const headers = rows[0];
             const viajes = [];
             for (let i = 1; i < rows.length; i++) {
                 const row = rows[i];
-                if (row.length < 5 || !row[0]) continue; // columna día
-                // Mapeo según las columnas del Excel que exporta capa2 (tabla-rutas)
-                // Debe extraer: Destino, Flota, Volumen, Secuencia, Llegada al Andén (fecha/hora)
-                // Como es variable, haremos un mapeo por posición aproximada.
-                // Asumimos: col1 día, col2 destino, col3 flota, col4 volumen, col5 ocupación, col6 secuencia, col7 llegada andén, col8 salida, col9 retorno
-                const destino = row[1] ? String(row[1]).split('📦')[0].trim() : "";
+                if (row.length < 5 || !row[0]) continue;
+                let destino = row[1] ? String(row[1]).split('📦')[0].trim() : "";
                 let flota = row[2] ? String(row[2]) : "";
-                // Extraer placa (puede venir con "PRP" o "SUB")
                 const matchPlaca = flota.match(/([A-Z0-9]+)/);
                 if (matchPlaca) flota = matchPlaca[1];
                 const volumen = parseFloat(row[3]) || 0;
@@ -361,70 +777,96 @@
                     });
                 }
             }
-            if (viajes.length === 0) return alert("No se encontraron viajes válidos en el Excel. Asegúrate de que el archivo tenga el formato de la tabla 'Cronograma Maestro'.");
-            database.ref('patio/cola').set(viajes)
-                .then(() => alert(`✅ ${viajes.length} viajes importados desde Excel.`))
-                .catch(err => alert("Error al subir a Firebase: " + err.message));
+            if (viajes.length === 0) return alert("No se encontraron viajes válidos en el Excel.");
+            camionesEnEspera = viajes;
+            await guardarTodo();
+            renderizarCola();
+            alert(`✅ ${viajes.length} viajes importados desde Excel.`);
         };
         reader.readAsArrayBuffer(file);
     }
 
-    function mostrarInterfaz(galpon) {
+    // ---------- INICIALIZACIÓN DE LA INTERFAZ SEGÚN EL GALPÓN ----------
+    async function mostrarInterfaz(galpon) {
         galponActual = galpon;
+        // Cargar datos maestros desde localStorage (los guarda maestros.html)
+        const maestrosData = JSON.parse(localStorage.getItem('yms_maestros_data'));
+        if (maestrosData && maestrosData.Flota_Configurada) dbFlota = maestrosData.Flota_Configurada;
+        // Cargar datos desde Firebase
+        await cargarDatosDesdeFirebase();
+        // Renderizar la interfaz
         document.getElementById('app').innerHTML = `
             <div class="header">
                 <div class="header-left">
-                    <h1>Control Galpón ${galpon}</h1>
+                    <div style="height:60px; width:60px; background:var(--accent-blue); border-radius:8px;"></div>
+                    <h1>Tablero de Control y Minería de Procesos (Patio) - Galpón ${galpon}</h1>
                     <div class="import-buttons">
                         <button class="btn" onclick="cargarDesdeLocalStorage()">📂 Cargar plan desde localStorage</button>
                         <button class="btn btn-yellow" onclick="document.getElementById('excel-input').click()">📎 Cargar plan desde Excel</button>
                         <input type="file" id="excel-input" class="file-input" accept=".xlsx, .xls" onchange="cargarDesdeExcel(this.files[0])">
                     </div>
-                    <a href="monitor_tv.html" target="_blank" class="btn">📺 Proyectar TV</a>
+                    <button class="btn-proyectar" onclick="window.open('monitor_tv.html', '_blank')">📺 Proyectar FIDS al TV</button>
                 </div>
-                <div class="clock" id="main-clock">--:--:--</div>
+                <div class="clock" id="main-clock">00:00:00</div>
             </div>
             <div class="main-container">
                 <div class="sidebar">
                     <div class="queue-panel"><div class="queue-header">🚚 PATIO (DISPONIBLES)</div><div class="queue-list" id="queue-list"></div></div>
-                    <div class="en-ruta-panel"><div class="ruta-header">🚛 EN RUTA</div><div class="queue-list" id="ruta-list"></div></div>
+                    <div class="en-ruta-panel"><div class="ruta-header">🚛 VEHÍCULOS EN RUTA</div><div class="queue-list" id="ruta-list"></div></div>
                 </div>
                 <div class="yard-panel" id="yard-panel"></div>
             </div>
             <div class="kpi-bar">
                 <div class="kpi-wrapper">
                     <div class="kpi-item"><span class="kpi-label">Despachos Finalizados</span><span class="kpi-val" id="kpi-total">0</span></div>
-                    <div class="kpi-item"><span class="kpi-label">Incidencias (RCA)</span><span class="kpi-val" id="kpi-incidencias">0</span></div>
+                    <div class="kpi-item"><span class="kpi-label">OTIF Andén (A Tiempo)</span><span class="kpi-val" id="kpi-otif" style="color: var(--green);">100%</span></div>
+                    <div class="kpi-item"><span class="kpi-label">Tiempo Promedio Carga</span><span class="kpi-val" id="kpi-avg">0 min</span></div>
+                    <div class="kpi-item"><span class="kpi-label">Incidencias (RCA)</span><span class="kpi-val" id="kpi-incidencias" style="color: var(--red);">0</span></div>
                 </div>
-                <button class="btn-report" onclick="abrirModalReporte()">📊 Auditoría</button>
+                <button class="btn-report" onclick="abrirModalReporte()">📊 Auditoría y Línea de Tiempo</button>
             </div>
+            <!-- Modales (estatus, rca, reporte) -->
+            <div class="modal-overlay" id="modal-estatus"><div class="modal-content"><h3 class="modal-title" style="color:var(--accent-blue);">⚙️ GESTIÓN DE ALISTAMIENTO</h3><p>Vehículo: <b id="modal-estatus-placa"></b></p><div class="form-group"><label>Yard Jockey</label><select class="form-control" id="sel-jockey"><option>Sin Asignar</option><option>Chofer de Guardia 1</option><option>Chofer de Guardia 2</option><option>Chofer de Guardia 3</option><option>Chofer de Guardia 4</option></select></div><div class="form-group"><label>Estatus Logístico</label><select class="form-control" id="sel-estatus"><option value="DISPONIBLE EN PATIO">🟢 DISPONIBLE EN PATIO</option><option value="LAVADO" data-sla="30">🔵 LAVADO (SLA:30 min)</option><option value="SURTIENDO" data-sla="45">🟡 SURTIENDO COMB. (45 min)</option><option value="EN TALLER LOGI" data-sla="60">🔴 EN TALLER LOGI (60 min)</option><option value="EN ACARREO" data-sla="45">🟣 EN ACARREO (45 min)</option><option value="CLC COLCHONES" data-sla="45">🟣 CLC COLCHONES (45 min)</option></select></div><div class="modal-actions"><button class="btn-cancel" onclick="document.getElementById('modal-estatus').style.display='none'">Cancelar</button><button class="btn-save" style="background:var(--accent-blue);" onclick="guardarEstatus()">Guardar Cambios</button></div></div></div>
+            <div class="modal-overlay" id="modal-rca"><div class="modal-content"><h3 class="modal-title">⚠️ REGISTRO DE INCIDENCIA (RCA)</h3><div class="form-group"><label>Vehículo</label><input type="text" class="form-control" id="rca-placa" disabled></div><div class="form-group"><label>Fase del Retraso</label><input type="text" class="form-control" id="rca-fase" disabled></div><div class="form-group"><label>Causa Raíz</label><select class="form-control" id="rca-motivo"><option value="" disabled selected>Seleccione...</option><option>Retraso de Mantenimiento</option><option>Demora Operativa</option><option>Error de Selección</option><option>Alteración de Orden</option><option>Andenes Ocupados</option><option>Mercancía no consolidada</option><option>Falla de Montacargas</option><option>Retraso del Chofer</option><option>Caída del Sistema SAP</option><option>Retención por Auditoría</option><option>Falta de Personal</option></select></div><div class="form-group"><label>Observaciones</label><input type="text" class="form-control" id="rca-obs" placeholder="Detalles..."></div><div class="modal-actions"><button class="btn-cancel" onclick="cancelarRCA()">Cancelar</button><button class="btn-save" onclick="guardarRCA()">Guardar Incidencia</button></div></div></div>
+            <div class="modal-overlay" id="modal-reporte"><div class="modal-content large"><div style="display:flex; justify-content:space-between; align-items:center;"><h3 style="color:var(--accent-blue);">📊 LÍNEA DE TIEMPO Y AUDITORÍA CAPA</h3><div><button class="btn-proyectar" style="background:#64748b; color:white;" onclick="limpiarHistorial()">🗑️ Borrar Datos</button><button class="btn-proyectar" style="background:var(--green); color:white;" onclick="exportarExcelRCA()">⬇️ Exportar Excel</button><button class="btn-proyectar" style="background:var(--red); color:white;" onclick="cerrarModalReporte()">✖ Cerrar</button></div></div><div class="table-wrap"><table id="tabla-historico"><thead><tr><th>Fecha</th><th>ID Viaje</th><th>Flota / YJ</th><th>Destino</th><th>Docs SAP</th><th>Puerta</th><th>Llegada Prog.</th><th>Llegada Real</th><th>Dif. Llegada</th><th>Carga Prog.</th><th>Carga Real</th><th>Dif. Carga</th><th>Salida CDD</th><th>Retorno</th><th>Dur. Viaje</th><th>Causa Raíz</th></tr></thead><tbody id="tb-historico"></tbody></table></div></div></div>
         `;
-        setInterval(() => { let c = document.getElementById('main-clock'); if (c) c.innerText = new Date().toLocaleTimeString(); }, 1000);
-        database.ref('patio/cola').on('value', s => { camionesEnEspera = s.val() || []; renderizarCola(); });
-        database.ref('patio/andenes').on('value', s => { let obj = s.val() || {}; let lista = []; for (let g in obj) for (let p in obj[g]) lista.push(obj[g][p]); camionesEnAnden = lista; renderizarGalpones(); });
-        database.ref('patio/enRuta').on('value', s => { camionesEnRuta = s.val() || []; renderizarRuta(); });
-        database.ref('patio/historial').on('value', s => { historial = s.val() || []; actualizarKPIs(); });
-        renderizarGalpones();
+        // Iniciar listeners en tiempo real de Firebase (para mantener sincronización multi-usuario)
+        database.ref('patio/cola').on('value', (snap) => { camionesEnEspera = snap.val() || []; renderizarCola(); });
+        database.ref('patio/andenes').on('value', async (snap) => {
+            const obj = snap.val() || {};
+            const lista = [];
+            for (let g in obj) for (let p in obj[g]) if (obj[g][p]) lista.push(obj[g][p]);
+            camionesEnAnden = lista;
+            construirGalpones(); // Reconstruye las puertas y restaura los andenes activos
+        });
+        database.ref('patio/enRuta').on('value', (snap) => { camionesEnRuta = snap.val() || []; renderizarRuta(); });
+        database.ref('patio/historial').on('value', (snap) => { historialOperacion = snap.val() || []; actualizarKPIs(); });
+        construirGalpones();
+        renderizarCola();
+        renderizarRuta();
+        setInterval(() => { const cl = document.getElementById('main-clock'); if (cl) cl.innerText = new Date().toLocaleTimeString('es-VE', { hour12: false }); }, 1000);
+        actualizarKPIs();
     }
 
+    // ---------- LOGIN ----------
     function mostrarLogin() {
         document.getElementById('app').innerHTML = `
             <div class="login-container">
                 <div class="login-box">
                     <h2>Iniciar Sesión</h2>
-                    <input type="email" id="email" placeholder="Email" autocomplete="off">
-                    <input type="password" id="pass" placeholder="Contraseña">
-                    <button id="btnLogin">Ingresar</button>
-                    <div id="error" class="error-msg"></div>
+                    <input type="email" id="login-email" placeholder="Email" autocomplete="off">
+                    <input type="password" id="login-password" placeholder="Contraseña">
+                    <button id="login-btn">Ingresar</button>
+                    <div id="login-error" class="error-msg"></div>
                 </div>
             </div>
         `;
-        document.getElementById('btnLogin').onclick = () => {
-            const email = document.getElementById('email').value;
-            const pass = document.getElementById('pass').value;
+        document.getElementById('login-btn').addEventListener('click', () => {
+            const email = document.getElementById('login-email').value;
+            const pass = document.getElementById('login-password').value;
             auth.signInWithEmailAndPassword(email, pass)
-                .then(cred => {
-                    const user = cred.user;
+                .then(userCred => {
+                    const user = userCred.user;
                     const galpon = emailToGalpon[user.email];
                     if (!galpon) throw new Error("Usuario no autorizado");
                     if (galpon === 'monitor') window.location.href = 'monitor_tv.html';
@@ -432,8 +874,8 @@
                     else if (typeof galpon === 'number') mostrarInterfaz(galpon);
                     else throw new Error("Rol inválido");
                 })
-                .catch(err => document.getElementById('error').innerText = err.message);
-        };
+                .catch(err => document.getElementById('login-error').innerText = err.message);
+        });
     }
 
     auth.onAuthStateChanged(user => {
